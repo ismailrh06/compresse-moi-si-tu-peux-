@@ -32,12 +32,17 @@ export default function CompressPage() {
     formData.append("algorithm", algorithm);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/compress", {
+      const res = await fetch("/api/compress", {
         method: "POST",
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Erreur serveur.");
+      if (!res.ok) {
+        if (res.status === 404 || res.status === 502 || res.status === 503) {
+          throw new Error("BACKEND_UNAVAILABLE");
+        }
+        throw new Error("Erreur serveur.");
+      }
       
       const json = await res.json();
 
@@ -47,7 +52,11 @@ export default function CompressPage() {
         setResult(json);
       }
     } catch (err) {
-      setError("Une erreur est survenue lors de la compression.");
+      if (err instanceof Error && err.message === "BACKEND_UNAVAILABLE") {
+        setError("Le backend n'est pas disponible. Déployez d'abord l'API puis configurez API_BASE_URL sur Vercel.");
+      } else {
+        setError("Une erreur est survenue lors de la compression.");
+      }
     }
 
     setLoading(false);
