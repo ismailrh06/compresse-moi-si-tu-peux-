@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///home/ismael/Desktop/grp-3/web/frontend/app/%28public%29/game-huffman/page.tsx"],"sourcesContent":["\"use client\";\n\nimport HuffmanGame from \"@/components/huffman/HuffmanGame\";\n\nexport default function GameHuffmanPage() {\n  return (\n    <div className=\"p-6 text-white\">\n      <HuffmanGame />\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;;;;;;AAAA;;;AAIe,SAAS;IACtB,qBACE,+YAAC;QAAI,WAAU;kBACb,cAAA,+YAAC;;;;;;;;;;AAGP"}}]
-}

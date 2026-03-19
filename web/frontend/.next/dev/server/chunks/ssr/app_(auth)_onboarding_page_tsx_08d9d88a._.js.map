@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///home/ismael/Desktop/grp-3/compressemos-web/app/%28auth%29/onboarding/page.tsx"],"sourcesContent":["\"use client\";\n\nimport { motion } from \"framer-motion\";\n\nexport default function OnboardingPage() {\n  return (\n    <div className=\"text-white\">\n      <motion.h1\n        className=\"text-4xl font-bold mb-10\"\n        initial={{ opacity: 0, y: 20 }}\n        animate={{ opacity: 1, y: 0 }}\n      >\n        Bienvenue 👋\n      </motion.h1>\n\n      <p className=\"text-white/80\">\n        Onboarding utilisateur (slides, étapes…) à venir.\n      </p>\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;AAEA;AAFA;;;AAIe,SAAS;IACtB,qBACE,+YAAC;QAAI,WAAU;;0BACb,+YAAC,iVAAM,CAAC,EAAE;gBACR,WAAU;gBACV,SAAS;oBAAE,SAAS;oBAAG,GAAG;gBAAG;gBAC7B,SAAS;oBAAE,SAAS;oBAAG,GAAG;gBAAE;0BAC7B;;;;;;0BAID,+YAAC;gBAAE,WAAU;0BAAgB;;;;;;;;;;;;AAKnC"}}]
-}
