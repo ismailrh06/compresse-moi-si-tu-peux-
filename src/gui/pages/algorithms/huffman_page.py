@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QGraphicsView, QGraphicsScene, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QHBoxLayout
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPen, QColor, QFont, QPainter, QLinearGradient, QBrush, QPalette
+from PySide6.QtGui import QPen, QColor, QFont, QPainter
 from collections import Counter
 import heapq
 from itertools import count
@@ -216,7 +216,6 @@ class HuffmanVulgarisationPage(QWidget):
             positions = {}
             self.assign_leaf_positions(step["root"], 0, positions)
             if positions:
-                leaf_count = max(positions.values()) + 1
                 spacing = 100
                 for node in positions:
                     positions[node] = positions[node] * spacing + 50

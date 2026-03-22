@@ -3,19 +3,19 @@
 # ===========================================
 
 # -------- Settings --------
-PYTHON := python3
+PYTHON ?= $(shell command -v python3.11 >/dev/null 2>&1 && echo python3.11 || echo python3)
 VENV := .venv
 PIP := pip
-PY := python3
+PY := $(abspath $(VENV)/bin/python)
 
 SRC := src
 TESTS := $(SRC)/tests
 
-.PHONY: help install venv run cli gui web backend frontend dev test coverage clean clean-all
+.PHONY: help install venv run cli gui web web-stop backend frontend dev test coverage clean clean-all
 
 
 # -------- Directories --------
-FRONTEND_DIR = web/frontend
+FRONTEND_DIR = $(shell if [ -f web/frontend/package.json ]; then echo web/frontend; elif [ -f web/frontend1/package.json ]; then echo web/frontend1; else echo web/frontend; fi)
 BACKEND_DIR = web/backend
 BACKEND_APP = server:app
 
@@ -81,11 +81,11 @@ backend-prod:
 
 frontend:
 	@echo "✨ Lancement du frontend Next.js..."
-	cd $(FRONTEND_DIR) && pnpm dev
+	cd $(FRONTEND_DIR) && (test -d node_modules || pnpm install) && pnpm dev --webpack
 
 frontend-network:
 	@echo "✨ Lancement du frontend Next.js (LAN accessible)..."
-	cd $(FRONTEND_DIR) && pnpm dev --turbo
+	cd $(FRONTEND_DIR) && (test -d node_modules || pnpm install) && pnpm dev --webpack --hostname 0.0.0.0
 
 # -------------------------------------------
 #               RUN TARGETS
@@ -104,8 +104,18 @@ gui:
 
 web:
 	@echo "🔥 Lancement du frontend + backend..."
-	make --no-print-directory backend & \
-	make --no-print-directory frontend
+	@$(MAKE) --no-print-directory web-stop
+	@$(MAKE) --no-print-directory backend & \
+	BACK_PID=$$!; \
+	$(MAKE) --no-print-directory frontend; \
+	kill $$BACK_PID 2>/dev/null || true
+
+web-stop:
+	@echo "🧹 Nettoyage des anciens processus web..."
+	-@lsof -ti tcp:8000 | xargs kill -9 2>/dev/null || true
+	-@lsof -ti tcp:3000 | xargs kill -9 2>/dev/null || true
+	-@lsof -ti tcp:3001 | xargs kill -9 2>/dev/null || true
+	-@rm -f $(FRONTEND_DIR)/.next/dev/lock
 
 dev:
 	@echo "$(YELLOW)[ DEV ] Mode développement (auto-reload si supporté)$(RESET)"

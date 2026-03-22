@@ -18,20 +18,20 @@ export default function DifficultySelector({
   ];
 
   return (
-    <div className="flex gap-2">
+    <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 md:w-auto md:min-w-[30rem]">
       {options.map((opt) => (
         <button
           key={opt.id}
           onClick={() => setDifficulty(opt.id as Difficulty)}
           disabled={disabled}
-          className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${
+          className={`rounded-xl border px-4 py-2.5 text-left text-sm font-medium transition sm:text-center ${
             opt.id === difficulty
               ? "bg-white text-black shadow"
               : "bg-white/5 text-white/70 border-white/20 hover:border-white/50"
           }`}
         >
-          <div>{opt.label}</div>
-          <div className="text-[10px] opacity-70">{opt.desc}</div>
+          <div className="text-sm font-semibold">{opt.label}</div>
+          <div className="mt-0.5 text-[11px] opacity-75">{opt.desc}</div>
         </button>
       ))}
     </div>

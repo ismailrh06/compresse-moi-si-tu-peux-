@@ -208,11 +208,11 @@ export default function ComparePage() {
   }
 
   return (
-    <div className="text-white px-6 py-10">
+    <div className="px-4 py-8 text-white sm:px-6 sm:py-10">
       <motion.h1
         initial={{ opacity: 0, y: 25 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-4xl font-bold mb-10"
+        className="mx-auto mb-8 max-w-6xl text-3xl font-bold sm:mb-10 sm:text-4xl"
       >
         Comparaison des algorithmes
       </motion.h1>
@@ -220,10 +220,10 @@ export default function ComparePage() {
       <motion.div
         initial={{ opacity: 0, y: 25 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-5xl mx-auto mb-10 rounded-3xl border border-white/15 bg-white/10 backdrop-blur-xl p-8 shadow-xl"
+        className="mx-auto mb-8 max-w-5xl rounded-3xl border border-white/15 bg-white/10 p-5 shadow-xl backdrop-blur-xl sm:mb-10 sm:p-8"
       >
         <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-center">
-          <label className="flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-3xl border border-white/20 px-6 py-10 text-center transition hover:bg-white/10">
+          <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-3xl border border-white/20 px-5 py-8 text-center transition hover:bg-white/10 sm:min-h-52 sm:px-6 sm:py-10">
             <FileUp size={42} className="mb-4" />
             <p className="text-lg font-medium">
               {file ? file.name : "Importe un vrai fichier pour comparer Huffman et LZW"}
@@ -238,7 +238,7 @@ export default function ComparePage() {
             />
           </label>
 
-          <div className="space-y-4 rounded-3xl border border-white/10 bg-slate-950/50 p-6">
+          <div className="space-y-4 rounded-3xl border border-white/10 bg-slate-950/50 p-5 sm:p-6">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-white/55">Analyse réelle</p>
               <p className="mt-2 text-sm text-white/75">
@@ -258,7 +258,7 @@ export default function ComparePage() {
             <button
               onClick={handleCompare}
               disabled={loading}
-              className="w-full rounded-2xl bg-white py-4 font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-2xl bg-white py-3 font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-50 sm:py-4"
             >
               {loading ? (
                 <span className="inline-flex items-center gap-2">
@@ -284,7 +284,7 @@ export default function ComparePage() {
         <motion.div
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-5xl mx-auto mb-10 rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-6 shadow-lg"
+          className="mx-auto mb-8 max-w-5xl rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-5 shadow-lg sm:mb-10 sm:p-6"
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -299,7 +299,7 @@ export default function ComparePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-sm lg:min-w-[320px]">
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:min-w-[320px]">
               <MetricCard label="Taille originale" value={formatBytes(result.original_size)} />
               <MetricCard label="Entropie" value={`${result.entropy.toFixed(2)} bits/symbole`} />
               <MetricCard label="Taille gagnante" value={formatBytes(bestEntry.compressed_size ?? 0)} />
@@ -311,12 +311,12 @@ export default function ComparePage() {
 
       {result && (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-6xl mx-auto">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-2 lg:gap-10">
 
             <motion.div
               initial={{ opacity: 0, y: 25 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8"
+              className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl sm:p-8"
             >
               <h2 className="text-xl font-semibold mb-6">
                 Taille du fichier après compression
@@ -327,7 +327,7 @@ export default function ComparePage() {
             <motion.div
               initial={{ opacity: 0, y: 25 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8"
+              className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl sm:p-8"
             >
               <h2 className="text-xl font-semibold mb-6">
                 Gain de place
@@ -338,12 +338,12 @@ export default function ComparePage() {
             <motion.div
               initial={{ opacity: 0, y: 25 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8"
+              className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl sm:p-8"
             >
               <h2 className="text-xl font-semibold mb-6 text-center">
                 Répartition original / meilleur résultat
               </h2>
-              <div className="w-[300px] mx-auto">
+              <div className="mx-auto w-full max-w-[300px]">
                 <Doughnut data={doughnutData} />
               </div>
             </motion.div>
@@ -351,7 +351,7 @@ export default function ComparePage() {
             <motion.div
               initial={{ opacity: 0, y: 25 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8"
+              className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-xl sm:p-8"
             >
               <h2 className="text-xl font-semibold mb-6">
                 Temps de compression
@@ -360,19 +360,19 @@ export default function ComparePage() {
             </motion.div>
           </div>
 
-          <div className="max-w-6xl mx-auto mt-10 grid gap-6 md:grid-cols-2">
+          <div className="mx-auto mt-10 grid max-w-6xl gap-6 md:grid-cols-2">
             {result.algorithms.map((entry) => (
               <motion.div
                 key={entry.algorithm}
                 initial={{ opacity: 0, y: 25 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`rounded-3xl border p-6 backdrop-blur-xl shadow-xl ${
+                className={`rounded-3xl border p-5 shadow-xl backdrop-blur-xl sm:p-6 ${
                   entry.algorithm === result.best_algorithm
                     ? "border-emerald-400/40 bg-emerald-500/10"
                     : "border-white/20 bg-white/10"
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h3 className="text-2xl font-bold">{entry.label}</h3>
                     <p className="mt-1 text-sm text-white/65">
@@ -398,7 +398,7 @@ export default function ComparePage() {
                   </div>
                 ) : (
                   <>
-                    <div className="mt-6 grid grid-cols-2 gap-3 text-sm text-white/85">
+                    <div className="mt-6 grid grid-cols-1 gap-3 text-sm text-white/85 sm:grid-cols-2">
                       <MetricCard label="Taille finale" value={formatBytes(entry.compressed_size ?? 0)} />
                       <MetricCard label="Gain de place" value={toPercent(entry.space_saving)} />
                       <MetricCard label="Ratio final" value={toPercent(entry.compression_ratio)} />
@@ -408,7 +408,7 @@ export default function ComparePage() {
                     <button
                       onClick={() => downloadCompressed(entry)}
                       disabled={!entry.compressed_base64}
-                      className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                     >
                       <Download size={18} />
                       Télécharger {entry.output_filename}

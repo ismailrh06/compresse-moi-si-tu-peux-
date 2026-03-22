@@ -1,8 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, 
-    QLineEdit, QMessageBox, QScrollArea
+    QLineEdit, QMessageBox
 )
-from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 from src.gui.widgets.sidebar import RoundedPixmap
 from .._ui_shared import WHITE_ACTION_BUTTON_STYLE, apply_solid_background

@@ -3,20 +3,14 @@
 import { motion } from "framer-motion";
 import { User, Lock, UserPlus, AlertCircle } from "lucide-react";
 import { FormEvent, useState } from "react";
-
-type StoredUser = {
-  fullName: string;
-  password?: string;
-};
-
-const USERS_KEY = "compressemos_users";
+import { api } from "@/lib/api";
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  function handleSignup(e: FormEvent) {
+  async function handleSignup(e: FormEvent) {
     e.preventDefault(); // IMPORTANT
     setError("");
 
@@ -26,32 +20,28 @@ export default function SignupPage() {
       return;
     }
 
-    const users: StoredUser[] = JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]");
-    const alreadyExists = users.some(
-      (u) => u.fullName.trim().toLowerCase() === normalizedName.toLowerCase()
-    );
+    try {
+      const response = await api.signup({
+        full_name: normalizedName,
+        password,
+      });
 
-    if (alreadyExists) {
-      setError("Un compte existe déjà avec ce nom complet.");
-      return;
+      document.cookie = `auth_token=${encodeURIComponent(response.full_name)}; path=/;`;
+      document.cookie = `full_name=${encodeURIComponent(response.full_name)}; path=/;`;
+      // onboarding doit être fait encore → redirection
+      window.location.href = "/onboarding";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de créer le compte.");
     }
-
-    const nextUsers = [...users, { fullName: normalizedName, password: password || "" }];
-    localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
-
-    document.cookie = `auth_token=${encodeURIComponent(normalizedName)}; path=/;`;
-    document.cookie = `full_name=${encodeURIComponent(normalizedName)}; path=/;`;
-    // onboarding doit être fait encore → redirection
-    window.location.href = "/onboarding";
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="flex min-h-screen items-center justify-center px-4 py-8 sm:py-10">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/20 p-10 rounded-3xl shadow-xl"
+        className="w-full max-w-md rounded-3xl border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur-2xl sm:p-10"
       >
         <h1 className="text-2xl font-bold mb-6 text-center">
           S’inscrire
@@ -69,7 +59,7 @@ export default function SignupPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Ex: Ismael Ndiaye"
-              className="w-full bg-black/40 border border-white/20 rounded-xl px-4 py-2"
+              className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3"
             />
           </div>
 
@@ -83,7 +73,7 @@ export default function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Optionnel"
-              className="w-full bg-black/40 border border-white/20 rounded-xl px-4 py-2"
+              className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3"
             />
           </div>
 
@@ -105,7 +95,7 @@ export default function SignupPage() {
           </motion.button>
         </form>
 
-        <p className="text-center text-white/60 text-sm mt-4">
+        <p className="mt-4 text-center text-sm text-white/60">
           Déjà un compte ? <a href="/login" className="text-blue-300">Se connecter</a>
         </p>
       </motion.div>

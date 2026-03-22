@@ -7,48 +7,78 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 export default function Onboarding() {
   const [step, setStep] = useState(0);
 
-  // Étape 1 sélection
-  const [selectedMode, setSelectedMode] = useState<string | null>(null);
-  // Étape 2 sélection
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  // Phase 1 : profil du visiteur
+  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
+  // Phase 2 : intention principale
+  const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
 
   const steps = [
     {
-      title: "Bienvenue sur Compressemos",
-      desc: "On va configurer ton expérience en 3 petites étapes. Promis, ça va être rapide ✨",
+      title: "Ton profil en 1 clic",
+      desc: "Pour adapter l'expérience, dis-nous qui visite le site aujourd'hui.",
       content: (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          {/* Option 1 */}
           <button
-            onClick={() => setSelectedMode("demo")}
+            onClick={() => setSelectedProfile("student")}
             className={`bg-black/20 p-5 rounded-2xl border transition 
               ${
-                selectedMode === "demo"
+                selectedProfile === "student"
                   ? "border-yellow-400 shadow-lg"
                   : "border-white/10"
               }
             `}
           >
-            <h3 className="font-semibold text-white mb-2">Démo / Projet scolaire</h3>
+            <h3 className="font-semibold text-white mb-2">Étudiant / Apprenant</h3>
             <p className="text-white/60 text-sm">
-              Tu veux montrer le projet en soutenance, expliquer les algorithmes de compression et impressionner le jury.
+              Je veux comprendre les bases de Huffman et LZW avec des exemples simples.
             </p>
           </button>
 
-          {/* Option 2 */}
           <button
-            onClick={() => setSelectedMode("exploration")}
+            onClick={() => setSelectedProfile("dev")}
             className={`bg-black/20 p-5 rounded-2xl border transition 
               ${
-                selectedMode === "exploration"
+                selectedProfile === "dev"
                   ? "border-yellow-400 shadow-lg"
                   : "border-white/10"
               }
             `}
           >
-            <h3 className="font-semibold text-white mb-2">Exploration perso</h3>
+            <h3 className="font-semibold text-white mb-2">Dev / Tech</h3>
             <p className="text-white/60 text-sm">
-              Tu explores la compression par curiosité, pour apprendre comment les algos fonctionnent en pratique.
+              Je veux comparer les algorithmes et voir les performances rapidement.
+            </p>
+          </button>
+
+          <button
+            onClick={() => setSelectedProfile("teacher")}
+            className={`bg-black/20 p-5 rounded-2xl border transition 
+              ${
+                selectedProfile === "teacher"
+                  ? "border-yellow-400 shadow-lg"
+                  : "border-white/10"
+              }
+            `}
+          >
+            <h3 className="font-semibold text-white mb-2">Enseignant / Formateur</h3>
+            <p className="text-white/60 text-sm">
+              Je veux vulgariser la compression pour un cours ou une démonstration.
+            </p>
+          </button>
+
+          <button
+            onClick={() => setSelectedProfile("curious")}
+            className={`bg-black/20 p-5 rounded-2xl border transition 
+              ${
+                selectedProfile === "curious"
+                  ? "border-yellow-400 shadow-lg"
+                  : "border-white/10"
+              }
+            `}
+          >
+            <h3 className="font-semibold text-white mb-2">Curieux</h3>
+            <p className="text-white/60 text-sm">
+              Je découvre le sujet et je veux une approche visuelle et ludique.
             </p>
           </button>
         </div>
@@ -56,53 +86,73 @@ export default function Onboarding() {
     },
 
     {
-      title: "Choisis ton style d'utilisation",
-      desc: "Dis-nous comment tu vas utiliser Compressemos pour personnaliser ton expérience.",
+      title: "Ce que tu veux faire en priorité",
+      desc: "Choisis ton objectif principal pour démarrer directement au bon rythme.",
       content: (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          {/* Option 1 */}
           <button
-            onClick={() => setSelectedStyle("learning")}
+            onClick={() => setSelectedGoal("learn")}
             className={`bg-black/20 p-5 rounded-2xl border transition 
               ${
-                selectedStyle === "learning"
+                selectedGoal === "learn"
                   ? "border-yellow-400 shadow-lg"
                   : "border-white/10"
               }
             `}
           >
-            <h3 className="font-semibold text-white mb-2">Mode Apprentissage</h3>
+            <h3 className="font-semibold text-white mb-2">Apprendre les algorithmes</h3>
             <p className="text-white/60 text-sm">
-              Explications détaillées, graphiques, et vulgarisation des algorithmes.
+              Je veux des explications claires, visuelles et progressives.
             </p>
           </button>
 
-          {/* Option 2 */}
           <button
-            onClick={() => setSelectedStyle("fast")}
+            onClick={() => setSelectedGoal("compress")}
             className={`bg-black/20 p-5 rounded-2xl border transition 
               ${
-                selectedStyle === "fast"
+                selectedGoal === "compress"
                   ? "border-yellow-400 shadow-lg"
                   : "border-white/10"
               }
             `}
           >
-            <h3 className="font-semibold text-white mb-2">Mode Rapide</h3>
+            <h3 className="font-semibold text-white mb-2">Compresser un fichier vite</h3>
             <p className="text-white/60 text-sm">
-              Tu veux compresser vite, sans explications. Simple, rapide, efficace.
+              Aller à l'essentiel : importer, choisir, compresser, télécharger.
             </p>
           </button>
-        </div>
-      ),
-    },
 
-    {
-      title: "Prêt à commencer ?",
-      desc: "Ton espace Compressemos est prêt. Tu peux maintenant commencer à compresser 🚀",
-      content: (
-        <div className="mt-8 text-center text-white/70 text-lg">
-          <p>Tu es prêt à découvrir la magie de la compression.</p>
+          <button
+            onClick={() => setSelectedGoal("play")}
+            className={`bg-black/20 p-5 rounded-2xl border transition 
+              ${
+                selectedGoal === "play"
+                  ? "border-yellow-400 shadow-lg"
+                  : "border-white/10"
+              }
+            `}
+          >
+            <h3 className="font-semibold text-white mb-2">Jouer & pratiquer</h3>
+            <p className="text-white/60 text-sm">
+              Je veux apprendre via les jeux Huffman / LZW et le challenge.
+            </p>
+          </button>
+
+          <button
+            onClick={() => setSelectedGoal("compare")}
+            className={`bg-black/20 p-5 rounded-2xl border transition 
+              ${
+                selectedGoal === "compare"
+                  ? "border-yellow-400 shadow-lg"
+                  : "border-white/10"
+              }
+            `}
+          >
+            <h3 className="font-semibold text-white mb-2">Comparer Huffman vs LZW</h3>
+            <p className="text-white/60 text-sm">
+              Je veux surtout analyser les ratios, tailles et performances.
+            </p>
+          </button>
         </div>
       ),
     },
@@ -113,30 +163,44 @@ export default function Onboarding() {
 
   const finish = () => {
     document.cookie = "onboarding_done=true; path=/;";
+    if (selectedProfile) {
+      document.cookie = `visitor_profile=${encodeURIComponent(selectedProfile)}; path=/;`;
+    }
+    if (selectedGoal) {
+      document.cookie = `visitor_goal=${encodeURIComponent(selectedGoal)}; path=/;`;
+    }
     window.location.href = "/";
   };
 
   // Conditions de validation
   const isNextDisabled =
-    (step === 0 && !selectedMode) || (step === 1 && !selectedStyle);
+    (step === 0 && !selectedProfile) || (step === 1 && !selectedGoal);
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="flex min-h-screen items-start justify-center px-4 py-6 sm:items-center sm:py-10">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-3xl bg-black/40 backdrop-blur-2xl border border-white/10 p-10 rounded-3xl shadow-2xl"
+        className="w-full max-w-3xl rounded-3xl border border-white/10 bg-black/40 p-6 shadow-2xl backdrop-blur-2xl sm:p-10"
       >
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl font-bold flex gap-2 items-center text-white">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-white sm:text-3xl">
             <Sparkles className="text-yellow-300" size={26} />
             Onboarding
           </h1>
           <p className="text-white/60 mt-1">
             Étape {step + 1} sur {steps.length}
           </p>
+          <div className="mt-4 h-2 w-full rounded-full bg-white/10">
+            <motion.div
+              initial={false}
+              animate={{ width: `${((step + 1) / steps.length) * 100}%` }}
+              transition={{ duration: 0.25 }}
+              className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-emerald-300"
+            />
+          </div>
         </div>
 
         {/* Step content */}
@@ -148,7 +212,7 @@ export default function Onboarding() {
             exit={{ opacity: 0, y: -30 }}
             transition={{ duration: 0.3 }}
           >
-            <h2 className="text-2xl font-bold text-white mb-3">
+            <h2 className="mb-3 text-xl font-bold text-white sm:text-2xl">
               {steps[step].title}
             </h2>
 
@@ -159,33 +223,30 @@ export default function Onboarding() {
         </AnimatePresence>
 
         {/* Navigation */}
-        <div className="flex justify-between mt-12">
+        <div className="mt-10 flex flex-col gap-4 sm:mt-12 sm:flex-row sm:items-center sm:justify-between">
 
           {/* Précédent */}
           {step > 0 ? (
             <button
               onClick={prevStep}
-              className="flex items-center gap-2 text-white/70 hover:text-white transition"
+              className="inline-flex items-center gap-2 text-white/70 transition hover:text-white"
             >
               <ArrowLeft size={18} />
               Précédent
             </button>
           ) : (
-            <div></div>
+            <div className="hidden sm:block" />
           )}
 
           {/* Skip + Next */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
 
             {/* Skip */}
             <button
-              onClick={() => {
-                if (step === steps.length - 1) finish();
-                else nextStep();
-              }}
-              className="text-white/40 hover:text-white/70 transition text-sm"
+              onClick={finish}
+              className="text-left text-sm text-white/40 transition hover:text-white/70 sm:text-center"
             >
-              Skip
+              Passer
             </button>
 
             {/* Suivant / Terminer */}
@@ -196,7 +257,7 @@ export default function Onboarding() {
                 else nextStep();
               }}
               className={`
-                px-6 py-3 rounded-full font-semibold flex items-center gap-2 transition
+                flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 font-semibold transition sm:w-auto
                 ${
                   isNextDisabled
                     ? "bg-white/20 text-black/20 cursor-not-allowed"

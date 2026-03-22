@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
     QGraphicsDropShadowEffect
 )
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QPoint
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
 from PySide6.QtGui import QFont, QColor, QPixmap
 from .._ui_shared import apply_solid_background
 
@@ -214,7 +214,7 @@ class HomePage(QWidget):
         self.router = router
         self.sidebar = sidebar
         self._logo_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../../..", "assets", "Compresse_moi_si_tu_peux.png")
+            os.path.join(os.path.dirname(__file__), "../../../../assets/Compresse_moi_si_tu_peux.png")
         )
         self.setObjectName("HomePage")
         self._setup_background()
@@ -448,7 +448,7 @@ class HomePage(QWidget):
         row.setSpacing(24)
 
         icons_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../../..", "assets", "icons")
+            os.path.join(os.path.dirname(__file__), "../../../../assets/icons")
         )
         features = [
             (os.path.join(icons_dir, "compress.svg"), "Compression rapide",

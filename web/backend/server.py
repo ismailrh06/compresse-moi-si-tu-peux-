@@ -3,7 +3,11 @@ from __future__ import annotations
 import base64
 import json
 import math
+import os
 import sys
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request as UrlRequest, urlopen
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,10 +46,38 @@ BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 LEADERBOARD_FILE = BASE_DIR / "data" / "leaderboard.json"
+USERS_FILE = BASE_DIR / "data" / "users.json"
 LEADERBOARD_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _load_local_env(env_path: Path) -> None:
+    if not env_path.exists():
+        return
+
+    try:
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+
+            if key:
+                os.environ.setdefault(key, value)
+    except OSError:
+        pass
+
+
+_load_local_env(BASE_DIR / ".env")
 
 if not LEADERBOARD_FILE.exists():
     LEADERBOARD_FILE.write_text("[]", encoding="utf-8")
+
+if not USERS_FILE.exists():
+    USERS_FILE.write_text("[]", encoding="utf-8")
 
 
 ALGORITHMS = {
@@ -74,11 +106,78 @@ class LeaderboardSubmission(BaseModel):
     accuracy: int = Field(ge=0, le=100)
 
 
+class ChatMessage(BaseModel):
+    role: str = Field(min_length=1, max_length=20)
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1)
+
+
+class AuthPayload(BaseModel):
+    full_name: str = Field(min_length=1, max_length=80)
+    password: str = Field(default="", max_length=120)
+
+
+AI_ASSISTANT_PROMPT = (
+    "Tu es Compressemos Assistant, un coach pédagogique sur la compression de données.\\n"
+    "Objectif: aider un public curieux à comprendre Huffman, LZW, l'entropie, les ratios et les compromis.\\n"
+    "Règles de réponse:\\n"
+    "- Réponds en français clair, structuré, concis et concret.\\n"
+    "- Utilise des puces quand utile.\\n"
+    "- Si la question est vague, pose 1 à 2 questions de clarification maximum.\\n"
+    "- Donne des exemples simples (texte, motifs répétés, fichiers aléatoires).\\n"
+    "- N'invente pas de mesures exactes sans données.\\n"
+    "- Reste centré sur la compression, l'usage de l'app et l'interprétation des résultats."
+)
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+
+
+def _normalize_gemini_model(model_name: str) -> str:
+    model = (model_name or "").strip()
+    if model.startswith("models/"):
+        model = model[len("models/"):]
+    return model or "gemini-1.5-flash"
+
+
 def _normalize_player_name(name: str) -> str:
     normalized = " ".join(name.strip().split())
     if not normalized:
         raise HTTPException(status_code=400, detail="Nom du joueur invalide.")
     return normalized[:60]
+
+
+def _normalize_full_name(name: str) -> str:
+    normalized = " ".join(name.strip().split())
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Le nom complet est requis.")
+    if len(normalized) > 80:
+        normalized = normalized[:80]
+    return normalized
+
+
+def _load_users() -> list[dict]:
+    try:
+        raw = USERS_FILE.read_text(encoding="utf-8")
+        data = json.loads(raw or "[]")
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail=f"Impossible de lire les comptes: {exc}") from exc
+
+    return data if isinstance(data, list) else []
+
+
+def _save_users(users: list[dict]) -> None:
+    try:
+        USERS_FILE.write_text(
+            json.dumps(users, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Impossible d'enregistrer les comptes: {exc}") from exc
 
 
 def _load_leaderboard_entries() -> list[dict]:
@@ -194,6 +293,214 @@ def _best_algorithm(results: list[dict]) -> str | None:
     )["algorithm"]
 
 
+def _build_compression_assistant_reply(messages: list[ChatMessage]) -> str:
+    last_user = ""
+    for msg in reversed(messages):
+        if msg.role.lower() == "user" and msg.content.strip():
+            last_user = msg.content.strip().lower()
+            break
+
+    if not last_user:
+        return (
+            "Je peux t'expliquer Huffman, LZW, l'entropie, le ratio de compression "
+            "et comment interpréter les résultats dans l'application."
+        )
+
+    if any(keyword in last_user for keyword in ["bonjour", "salut", "hello", "bonsoir", "coucou"]):
+        return (
+            "Bonjour 👋 Je suis CompressBot.\n"
+            "Je peux t'aider à comprendre :\n"
+            "• ce qu'est la compression\n"
+            "• la différence entre Huffman et LZW\n"
+            "• l'entropie\n"
+            "• les ratios et gains de place\n"
+            "Pose-moi une question simple comme : 'C'est quoi la compression ?'"
+        )
+
+    if any(keyword in last_user for keyword in ["c'est quoi la compression", "compression", "compresser", "compresse"]):
+        if all(keyword not in last_user for keyword in ["ratio", "huffman", "lzw", "entropie", "sans perte", "avec perte"]):
+            return (
+                "La compression consiste à réduire la taille d'un fichier pour qu'il occupe moins d'espace.\n\n"
+                "Idée générale :\n"
+                "• on représente l'information de manière plus efficace\n"
+                "• on évite les répétitions inutiles\n"
+                "• on stocke ou transmet le fichier plus facilement\n\n"
+                "Il existe deux grandes familles :\n"
+                "• compression sans perte : on retrouve exactement le fichier d'origine\n"
+                "• compression avec perte : on perd une partie de l'information pour gagner plus de place\n\n"
+                "Dans ton application, Huffman et LZW sont des méthodes de compression sans perte."
+            )
+
+    if any(keyword in last_user for keyword in ["sans perte", "avec perte", "lossless", "lossy"]):
+        return (
+            "Différence simple :\n"
+            "• Sans perte : on récupère exactement le fichier d'origine après décompression\n"
+            "• Avec perte : une partie de l'information est supprimée de façon contrôlée\n\n"
+            "Exemples :\n"
+            "• Huffman et LZW → sans perte\n"
+            "• JPEG audio/vidéo compressés → souvent avec perte\n\n"
+            "Pour des documents, textes ou données, on préfère souvent la compression sans perte."
+        )
+
+    if any(keyword in last_user for keyword in ["huffman", "arbre", "code binaire", "préfixe"]):
+        return (
+            "Huffman compresse en attribuant des codes plus courts aux symboles fréquents "
+            "et des codes plus longs aux symboles rares.\n"
+            "• Étape 1: calculer la fréquence des symboles\n"
+            "• Étape 2: construire l'arbre binaire\n"
+            "• Étape 3: générer des codes préfixes\n"
+            "Résultat: très efficace sur des données avec répétitions."
+        )
+
+    if any(keyword in last_user for keyword in ["lzw", "dictionnaire", "motif"]):
+        return (
+            "LZW remplace des motifs répétés par des index de dictionnaire.\n"
+            "• Le dictionnaire grandit pendant la lecture\n"
+            "• Les séquences fréquentes deviennent des codes plus courts\n"
+            "LZW est souvent performant sur des textes avec motifs répétitifs."
+        )
+
+    if any(keyword in last_user for keyword in ["entropie", "entropy"]):
+        return (
+            "L'entropie mesure l'information moyenne par symbole.\n"
+            "Plus l'entropie est basse, plus la compression est généralement facile.\n"
+            "En pratique: des données très aléatoires se compressent peu."
+        )
+
+    if any(keyword in last_user for keyword in ["ratio", "taux", "gain", "space saving"]):
+        return (
+            "Dans l'application:\n"
+            "• compression_ratio = taille_compressée / taille_originale\n"
+            "• ratio (gain) = 1 - compression_ratio\n"
+            "Exemple: 0.40 de compression_ratio => 60% d'espace économisé."
+        )
+
+    if any(keyword in last_user for keyword in ["différence", "comparer", "huffman ou lzw"]):
+        return (
+            "Comparaison rapide:\n"
+            "• Huffman: basé sur les fréquences des symboles\n"
+            "• LZW: basé sur des séquences et dictionnaire\n"
+            "Teste les deux sur ton fichier: l'app montre directement le meilleur."
+        )
+
+    if any(keyword in last_user for keyword in ["qui es-tu", "qui es tu", "tu es qui"]):
+        return (
+            "Je suis CompressBot, un assistant pédagogique spécialisé dans la compression de données.\n"
+            "Je peux expliquer les concepts, comparer les algorithmes et t'aider à lire les résultats de l'application."
+        )
+
+    return (
+        "Je peux t'aider sur la compression.\n"
+        "Par exemple, tu peux me demander :\n"
+        "• C'est quoi la compression ?\n"
+        "• Comment fonctionne Huffman ?\n"
+        "• À quoi sert LZW ?\n"
+        "• Comment lire le ratio de compression ?"
+    )
+
+
+def _messages_to_gemini_payload(messages: list[ChatMessage]) -> list[dict]:
+    normalized: list[tuple[str, str]] = []
+
+    for message in messages:
+        text = message.content.strip()
+        if not text:
+            continue
+
+        role = "model" if message.role.lower() in {"assistant", "model", "bot"} else "user"
+        normalized.append((role, text))
+
+    # Gemini attend généralement un premier tour utilisateur.
+    first_user_index = next((i for i, (role, _) in enumerate(normalized) if role == "user"), -1)
+    if first_user_index == -1:
+        normalized = [("user", "Bonjour")]
+    else:
+        normalized = normalized[first_user_index:]
+
+    contents: list[dict] = []
+    for role, text in normalized:
+        if contents and contents[-1]["role"] == role:
+            previous_text = contents[-1]["parts"][0]["text"]
+            contents[-1]["parts"][0]["text"] = f"{previous_text}\n{text}"
+            continue
+
+        contents.append({"role": role, "parts": [{"text": text}]})
+
+    return contents
+
+
+def _build_gemini_reply(messages: list[ChatMessage]) -> str:
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY manquante.")
+
+    safe_model = quote(_normalize_gemini_model(GEMINI_MODEL), safe="")
+    url = f"{GEMINI_BASE_URL}/models/{safe_model}:generateContent?key={GEMINI_API_KEY}"
+
+    contents = _messages_to_gemini_payload(messages)
+
+    prompt_prefix = f"[INSTRUCTIONS]\n{AI_ASSISTANT_PROMPT}\n[/INSTRUCTIONS]"
+    if not contents:
+        contents = [{"role": "user", "parts": [{"text": prompt_prefix}]}]
+    elif contents[0].get("role") == "user":
+        first_text = contents[0]["parts"][0].get("text", "")
+        contents[0]["parts"][0]["text"] = f"{prompt_prefix}\n\n{first_text}".strip()
+    else:
+        contents.insert(0, {"role": "user", "parts": [{"text": prompt_prefix}]})
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": 0.4,
+            "maxOutputTokens": 700,
+        },
+    }
+
+    request = UrlRequest(
+        url=url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=25) as response:
+            raw = response.read().decode("utf-8")
+    except HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8")
+        except Exception:
+            detail = ""
+        suffix = f" - {detail}" if detail else ""
+        raise RuntimeError(f"Gemini indisponible: HTTP {exc.code} {exc.reason}{suffix}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise RuntimeError(f"Gemini indisponible: {exc}") from exc
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Réponse Gemini invalide.") from exc
+
+    candidates = data.get("candidates") or []
+    if not candidates:
+        raise RuntimeError("Aucune réponse candidate reçue.")
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text = "\n".join(part.get("text", "").strip() for part in parts if part.get("text"))
+
+    if not text:
+        raise RuntimeError("Réponse Gemini vide.")
+
+    return text
+
+
+def _build_ai_reply(messages: list[ChatMessage]) -> str:
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY manquante. Configure la clé dans web/backend/.env.")
+
+    return _build_gemini_reply(messages)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Page d'accueil"""
@@ -276,6 +583,61 @@ async def api_compare(file: UploadFile):
     }
 
 
+@app.post("/auth/signup")
+@app.post("/api/auth/signup")
+async def api_signup(payload: AuthPayload):
+    full_name = _normalize_full_name(payload.full_name)
+    password = payload.password or ""
+    users = _load_users()
+
+    existing = next(
+        (u for u in users if str(u.get("full_name", "")).strip().lower() == full_name.lower()),
+        None,
+    )
+
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="Ce nom est déjà utilisé. Connecte-toi.")
+
+    users.append(
+        {
+            "full_name": full_name,
+            "password": password,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    _save_users(users)
+
+    return {
+        "message": "Compte créé avec succès.",
+        "full_name": full_name,
+    }
+
+
+@app.post("/auth/login")
+@app.post("/api/auth/login")
+async def api_login(payload: AuthPayload):
+    full_name = _normalize_full_name(payload.full_name)
+    password = payload.password or ""
+    users = _load_users()
+
+    account = next(
+        (u for u in users if str(u.get("full_name", "")).strip().lower() == full_name.lower()),
+        None,
+    )
+
+    if account is None:
+        raise HTTPException(status_code=404, detail="Compte introuvable. Crée un compte d'abord.")
+
+    stored_password = str(account.get("password", ""))
+    if stored_password != password:
+        raise HTTPException(status_code=401, detail="Mot de passe incorrect.")
+
+    return {
+        "message": "Connexion réussie.",
+        "full_name": str(account.get("full_name", full_name)),
+    }
+
+
 @app.get("/api/leaderboard")
 async def api_leaderboard(limit: int = 20):
     safe_limit = max(1, min(limit, 100))
@@ -314,6 +676,19 @@ async def api_submit_leaderboard(payload: LeaderboardSubmission):
         "entry": entry,
         "leaderboard": _ranked_best_entries(entries, limit=10),
     }
+
+
+@app.post("/api/chat")
+async def api_chat(payload: ChatRequest):
+    try:
+        reply = _build_ai_reply(payload.messages)
+        return {"reply": reply}
+    except RuntimeError as exc:
+        print(f"[AI] Gemini error: {exc}")
+        raise HTTPException(
+            status_code=503,
+            detail="Assistant IA temporairement indisponible. Réessayez dans quelques instants.",
+        ) from exc
 
 
 @app.get("/login", response_class=HTMLResponse)

@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout,
-    QListWidget, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QScrollArea
+    QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QScrollArea
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QLinearGradient, QColor, QPalette, QBrush
@@ -402,7 +402,6 @@ class LZWPage(QWidget):
         pos_end   = step["pos_end"]
         action    = step["action"]
         w         = step["w"]
-        c         = step["c"]
         wc        = step["wc"]
 
         # Coloration du mot

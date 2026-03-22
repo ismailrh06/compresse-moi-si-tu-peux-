@@ -29,6 +29,20 @@ export type LeaderboardSubmission = {
   accuracy: number;
 };
 
+export type AuthPayload = {
+  full_name: string;
+  password: string;
+};
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ChatResponse = {
+  reply: string;
+};
+
 function isLocalHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1";
 }
@@ -65,9 +79,47 @@ function buildApiCandidates(path: string) {
   return Array.from(new Set(candidates));
 }
 
+function buildPublicErrorMessage(path: string) {
+  if (path.startsWith("chat")) {
+    return "Assistant IA temporairement indisponible. Réessayez dans quelques instants.";
+  }
+
+  if (path.startsWith("auth/")) {
+    return "Service d'authentification temporairement indisponible.";
+  }
+
+  if (path.startsWith("compress") || path.startsWith("compare")) {
+    return "Service de compression temporairement indisponible.";
+  }
+
+  if (path.startsWith("leaderboard")) {
+    return "Classement temporairement indisponible.";
+  }
+
+  return "Service temporairement indisponible. Réessayez dans quelques instants.";
+}
+
+function getApiErrorMessage(path: string, payload: unknown) {
+  const fallback = buildPublicErrorMessage(path);
+
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const detail = (payload as { detail?: unknown }).detail;
+  const error = (payload as { error?: unknown }).error;
+  const message = (payload as { message?: unknown }).message;
+
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (typeof error === "string" && error.trim()) return error;
+  if (typeof message === "string" && message.trim()) return message;
+
+  return fallback;
+}
+
 async function postForm(path: string, formData: FormData) {
   const urls = buildApiCandidates(path);
-  let lastNetworkError: Error | null = null;
+  const publicMessage = buildPublicErrorMessage(path);
 
   for (const url of urls) {
     try {
@@ -81,14 +133,14 @@ async function postForm(path: string, formData: FormData) {
         .catch(() => ({ error: "Réponse serveur invalide." }));
 
       if (!response.ok) {
-        throw new Error(json.error || json.detail || "Erreur serveur.");
+        console.error("API form error:", { path, url, status: response.status, payload: json });
+        throw new Error(getApiErrorMessage(path, json));
       }
 
       return json;
     } catch (error) {
       // On retente uniquement en cas d'erreur réseau
       if (error instanceof TypeError) {
-        lastNetworkError = error;
         continue;
       }
 
@@ -97,14 +149,13 @@ async function postForm(path: string, formData: FormData) {
   }
 
   throw new Error(
-    lastNetworkError?.message ||
-      "Impossible de contacter le serveur de compression. Vérifiez que le backend est lancé."
+    publicMessage
   );
 }
 
 async function requestJson<T>(path: string, init?: RequestInit) {
   const urls = buildApiCandidates(path);
-  let lastNetworkError: Error | null = null;
+  const publicMessage = buildPublicErrorMessage(path);
 
   for (const url of urls) {
     try {
@@ -121,13 +172,13 @@ async function requestJson<T>(path: string, init?: RequestInit) {
         .catch(() => ({ error: "Réponse serveur invalide." }));
 
       if (!response.ok) {
-        throw new Error(json.error || json.detail || "Erreur serveur.");
+        console.error("API json error:", { path, url, status: response.status, payload: json });
+        throw new Error(getApiErrorMessage(path, json));
       }
 
       return json as T;
     } catch (error) {
       if (error instanceof TypeError) {
-        lastNetworkError = error;
         continue;
       }
 
@@ -136,12 +187,25 @@ async function requestJson<T>(path: string, init?: RequestInit) {
   }
 
   throw new Error(
-    lastNetworkError?.message ||
-      "Impossible de contacter le serveur. Vérifiez que le backend est lancé."
+    publicMessage
   );
 }
 
 export const api = {
+  signup: async (payload: AuthPayload) => {
+    return requestJson<{ message: string; full_name: string }>("auth/signup", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  login: async (payload: AuthPayload) => {
+    return requestJson<{ message: string; full_name: string }>("auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   compress: async (file: File, algorithm: string) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -167,6 +231,13 @@ export const api = {
     return requestJson<{ message: string; entry: LeaderboardEntry }>("leaderboard/submit", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+
+  chat: async (messages: ChatMessage[]) => {
+    return requestJson<ChatResponse>("chat", {
+      method: "POST",
+      body: JSON.stringify({ messages }),
     });
   },
 };

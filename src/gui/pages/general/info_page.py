@@ -2,7 +2,7 @@ import webbrowser
 
 from PySide6.QtWidgets import (
 	QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-	QFrame, QGraphicsDropShadowEffect, QSizePolicy
+	QFrame, QGraphicsDropShadowEffect
 )
 from PySide6.QtGui import QFont, QColor, QLinearGradient, QPalette, QBrush
 from PySide6.QtCore import Qt
@@ -42,23 +42,23 @@ class InfoPage(QWidget):
 		scroll = QScrollArea()
 		scroll.setWidgetResizable(True)
 		scroll.setFrameShape(QFrame.NoFrame)
-		scroll.setStyleSheet(f"""
-			QScrollArea {{ background: transparent; }}
-			QScrollBar:vertical {{
+		scroll.setStyleSheet("""
+			QScrollArea { background: transparent; }
+			QScrollBar:vertical {
 				background: transparent;
 				width: 12px;
 				margin: 6px 4px 6px 0px;
-			}}
-			QScrollBar::handle:vertical {{
+			}
+			QScrollBar::handle:vertical {
 				background: rgba(37,99,235,0.35);
 				border-radius: 6px;
 				min-height: 30px;
-			}}
-			QScrollBar::handle:vertical:hover {{ background: rgba(37,99,235,0.5); }}
-			QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+			}
+			QScrollBar::handle:vertical:hover { background: rgba(37,99,235,0.5); }
+			QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 				height: 0px;
 				background: transparent;
-			}}
+			}
 		""")
 
 		content = QWidget()
@@ -171,15 +171,15 @@ class InfoPage(QWidget):
 			btn = QPushButton(text)
 			btn.setCursor(Qt.PointingHandCursor)
 			btn.setFixedHeight(34)
-			btn.setStyleSheet(f"""
-				QPushButton {{
+			btn.setStyleSheet("""
+				QPushButton {
 					background: rgba(37,99,235,0.08);
 					color: #1E40AF;
 					border: 1px solid rgba(37,99,235,0.25);
 					border-radius: 8px;
 					font-weight: 600;
-				}}
-				QPushButton:hover {{ background: rgba(37,99,235,0.14); }}
+				}
+				QPushButton:hover { background: rgba(37,99,235,0.14); }
 			""")
 			btn.clicked.connect(lambda: webbrowser.open(url))
 			return btn

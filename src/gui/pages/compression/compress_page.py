@@ -155,6 +155,15 @@ class CompressPage(QWidget):
 
         layout.addWidget(card)
 
+        self.compare_message = {"original": "",
+                                "message" : "", 
+                                "sizeHuffman" : "",
+                                "sizeLZW": ""}
+        self.compare_label = QLabel("")
+        self.compare_label.setAlignment(Qt.AlignCenter)
+        self.compare_label.setStyleSheet("font-size: 13px; color: #e2e8f0; margin-top: 8px;")
+        layout.addWidget(self.compare_label)
+
     # ------------------------------------------------------------
     def eventFilter(self, watched, event):
         if watched is getattr(self, "_upload_btn", None):
@@ -209,17 +218,32 @@ class CompressPage(QWidget):
             self,
             "Choisir un fichier",
             "",
-            "Tous les fichiers (*);;Fichiers texte (*.txt);;Fichiers PDF (*.pdf)",
+            "Tous les fichiers (*);;Fichiers texte (*.txt);;Fichiers PDF (*.pdf);;Fichiers compressés (*.huf *.lzw)",
         )
         if not file_path:
             return
         data_dir = Path("data/input")
         data_dir.mkdir(exist_ok=True)
         dest_path = data_dir / Path(file_path).name
+        
         try:
             shutil.copy(file_path, dest_path)
             self.selected_file = dest_path
             self.file_label.setText(f"Fichier : {dest_path.name}")
+
+            file_size = self.selected_file.stat().st_size / 1024 # Taille en octets
+            if self.selected_file.suffix.lower() in [".huf", ".lzw", ".pdf"]:
+                self.compare_message["original"] = ""
+            else:
+                self.compare_message["original"] = f"Taille originale : {file_size:.2f} Ko\n"
+            self.compare_message["message"] = ""
+            self.compare_message["sizeHuffman"] = ""
+            self.compare_message["sizeLZW"] = ""
+            self.compare_label.setText(self.compare_message["original"] + 
+                                    self.compare_message["message"] +
+                                    self.compare_message["sizeHuffman"] + 
+                                    self.compare_message["sizeLZW"])
+
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de copier le fichier : {e}")
 
@@ -253,6 +277,20 @@ class CompressPage(QWidget):
             with out_path.open("wb") as f:
                 f.write(compressed)
 
+            # Permettre à l'utilisateur de choisir un emplacement personnalisé
+            save_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Enregistrer le fichier compressé",
+                f"{self.selected_file.stem}{ext}",
+                f"Fichiers compressés (*{ext})"
+            )
+            if save_path:
+                try:
+                    shutil.copy(out_path, save_path)  # Copier le fichier vers l'emplacement choisi
+                except Exception as e:
+                    QMessageBox.critical(self, "Erreur", f"Impossible de copier le fichier : {e}")
+                    return
+
             # Stocker les infos pour la page comparaison
             if hasattr(self.router, "__dict__"):
                 last = getattr(self.router, "last_compress", None)
@@ -277,56 +315,96 @@ class CompressPage(QWidget):
                     except Exception:
                         pass
 
-            QMessageBox.information(
-                self,
-                "Compression terminée",
-                f"Le fichier a été compressé avec {self.selected_algorithm}.\n\n"
-                f"Sortie : {out_path}"
-            )
+            # QMessageBox.information(
+            #     self,
+            #     "Compression terminée",
+            #     f"Le fichier a été compressé avec {self.selected_algorithm}.\n\n"
+            #     f"Sortie : {out_path}"
+            # )
+
+            self.compare_message["message"] = "✅ Compression terminée.\n"
+
+            if self.selected_algorithm == "Huffman":
+                size_kb = len(compressed) / 1024
+                self.compare_message["sizeHuffman"] = f"💠 Huffman : {size_kb:.2f} Ko\n"
+            elif self.selected_algorithm == "LZW":
+                size_kb = len(compressed) / 1024
+                self.compare_message["sizeLZW"] = f"💠 LZW : {size_kb:.2f} Ko\n"
+            self.compare_label.setText(self.compare_message["original"] + 
+                                    self.compare_message["message"] +
+                                    self.compare_message["sizeHuffman"] + 
+                                    self.compare_message["sizeLZW"])
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible d'écrire le fichier compressé : {e}")            
 
     def _decompress_file(self):
-        if self.selected_algorithm == "Huffman":
-            filter_text = "Fichiers Huffman (*.huf)"
-        elif self.selected_algorithm == "LZW":
-            filter_text = "Fichiers LZW (*.lzw)"
-        else:
-            filter_text = "Fichiers compressés (*.huf *.lzw)"
+        # if self.selected_algorithm == "Huffman":
+        #     filter_text = "Fichiers Huffman (*.huf)"
+        # elif self.selected_algorithm == "LZW":
+        #     filter_text = "Fichiers LZW (*.lzw)"
+        # else:
+        #     filter_text = "Fichiers compressés (*.huf *.lzw)"
 
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Choisir un fichier à décompresser", "", filter_text
-        )
-        if not file_path:
+        # file_path, _ = QFileDialog.getOpenFileName(
+        #     self, "Choisir un fichier à décompresser", "", filter_text
+        # )
+        # if not file_path:
+        #     return
+
+        if not self.selected_file or not self.selected_algorithm:
+            QMessageBox.warning(self, "Attention", "Sélectionnez un fichier et un algorithme d'abord.")
             return
 
-        in_path = Path(file_path)
-        with in_path.open("rb") as f:
+        if Path(self.selected_file).suffix.lower() not in [".huf", ".lzw"]:
+            QMessageBox.warning(self, "Attention", "Seuls les fichiers .huf et .lzw peuvent être compressés.")
+            return
+
+        # in_path = Path(file_path)
+        # with in_path.open("rb") as f:
+        #     data = f.read()
+
+        with self.selected_file.open("rb") as f:
             data = f.read()
 
-        if in_path.suffix.lower() == ".lzw":
+        if self.selected_file.suffix.lower() == ".lzw":
             decompressed = lzw_decoder(data)
-            out_ext = ".bin"
-        elif in_path.suffix.lower() == ".huf":
+            #out_ext = ".bin"
+            out_ext = ".txt"
+        elif self.selected_file.suffix.lower() == ".huf":
             decompressed = huffman_decompress(data)
-            out_ext = ".bin"
+            #out_ext = ".bin"
+            out_ext = ".txt"
         else:
             QMessageBox.warning(self, "Erreur", "Extension inconnue. Utilisez .huf ou .lzw.")
             return
 
         out_dir = Path("data/output")
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"{in_path.stem}_decompressed{out_ext}"
+        out_path = out_dir / f"{self.selected_file.stem}_decompressed{out_ext}"
 
         try:
             with out_path.open("wb") as f:
                 f.write(decompressed)
 
-            QMessageBox.information(
+            # Permettre à l'utilisateur de choisir un emplacement personnalisé
+            save_path, _ = QFileDialog.getSaveFileName(
                 self,
-                "Décompression terminée",
-                f"Le fichier a été décompressé.\n\nSortie : {out_path}"
+                "Enregistrer le fichier décompressé",
+                f"{self.selected_file.stem}_decompressed{out_ext}",
+                f"Fichiers décompressés (*{out_ext})"
             )
+            if save_path:
+                try:
+                    shutil.copy(out_path, save_path)  # Copier le fichier vers l'emplacement choisi
+                except Exception as e:
+                    QMessageBox.critical(self, "Erreur", f"Impossible de copier le fichier : {e}")
+                    return
+
+            # QMessageBox.information(
+            #     self,
+            #     "Décompression terminée",
+            #     f"Le fichier a été décompressé.\n\nSortie : {out_path}"
+            # )
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible d'écrire le fichier décompressé : {e}")
 
@@ -359,13 +437,13 @@ class CompressPage(QWidget):
 
             save_text_to_file(text, str(output_path))
 
-            QMessageBox.information(
-                self,
-                "Conversion terminée",
-                f"Le fichier PDF a été converti en texte.\n\n"
-                f"Sortie : {output_path}\n\n"
-                f"Nombre de caractères : {len(text)}"
-            )
+            # QMessageBox.information(
+            #     self,
+            #     "Conversion terminée",
+            #     f"Le fichier PDF a été converti en texte.\n\n"
+            #     f"Sortie : {output_path}\n\n"
+            #     f"Nombre de caractères : {len(text)}"
+            # )
         except FileNotFoundError as e:
             QMessageBox.critical(self, "Erreur", f"Fichier PDF introuvable : {e}")
         except ValueError as e:

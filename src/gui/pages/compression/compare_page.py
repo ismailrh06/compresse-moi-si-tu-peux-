@@ -116,7 +116,7 @@ class ComparePage(QWidget):
         hero_layout.addLayout(hero_left)
 
         # --- Bouton ---
-        self.btn_generate = QPushButton("📁 Utiliser le dernier fichier compressé")
+        self.btn_generate = QPushButton("📁 Choisir un fichier à analyser")
         self.btn_generate.setStyleSheet("""
             QPushButton {
                 background-color: rgba(255, 255, 255, 0.08);
@@ -217,10 +217,10 @@ class ComparePage(QWidget):
             "Comparaison directe des tailles. Une barre plus basse signifie une compression plus efficace."
         )
         # --- Carte 2: Line chart ---
-        self.card_line, self.card_line_layout, self.desc_line = make_card(
-            "Ratio de compression (%)",
-            "Un ratio plus faible indique une meilleure réduction de taille."
-        )
+        # self.card_line, self.card_line_layout, self.desc_line = make_card(
+        #     "Ratio de compression (%)",
+        #     "Un ratio plus faible indique une meilleure réduction de taille."
+        # )
         # --- Carte 3: Time chart ---
         self.card_time, self.card_time_layout, self.desc_time = make_card(
             "Temps d'exécution",
@@ -233,21 +233,21 @@ class ComparePage(QWidget):
         )
 
         grid.addWidget(self.card_bar, 0, 0)
-        grid.addWidget(self.card_line, 0, 1)
+        #grid.addWidget(self.card_line, 0, 1)
         grid.addWidget(self.card_time, 1, 0)
         grid.addWidget(self.card_donut, 1, 1)
         layout.addLayout(grid)
 
         # --- Graphiques QtCharts (4 cartes) ---
         self.chart_bar_view = self._build_chart_view()
-        self.chart_line_view = self._build_chart_view()
+        #self.chart_line_view = self._build_chart_view()
         self.chart_time_view = self._build_chart_view()
         self.chart_donut_view = self._build_chart_view(min_height=260)
 
         self.card_bar_layout.addWidget(self.chart_bar_view)
         self.card_bar_layout.addWidget(self.desc_bar)
-        self.card_line_layout.addWidget(self.chart_line_view)
-        self.card_line_layout.addWidget(self.desc_line)
+        #self.card_line_layout.addWidget(self.chart_line_view)
+        #self.card_line_layout.addWidget(self.desc_line)
         self.card_time_layout.addWidget(self.chart_time_view)
         self.card_time_layout.addWidget(self.desc_time)
         self.card_donut_layout.addWidget(self.chart_donut_view)
@@ -280,14 +280,14 @@ class ComparePage(QWidget):
         self.stat_gain.setText("—")
         self.stat_time.setText("—")
         self.desc_bar.setText("Comparaison directe des tailles après compression.")
-        self.desc_line.setText("Évolution du ratio de compression par algorithme.")
+        #self.desc_line.setText("Évolution du ratio de compression par algorithme.")
         self.desc_time.setText("Comparaison des temps d'exécution.")
         self.desc_donut.setText("Répartition entre taille originale et taille compressée moyenne.")
         self.summary_label.setText("Sélectionnez un fichier pour générer les graphiques.")
 
         for chart_view in (
             self.chart_bar_view,
-            self.chart_line_view,
+            #self.chart_line_view,
             self.chart_time_view,
             self.chart_donut_view,
         ):
@@ -329,7 +329,9 @@ class ComparePage(QWidget):
             if use_last_only:
                 self._set_empty_state()
                 return
-            file_path, _ = QFileDialog.getOpenFileName(self, "Choisir un fichier à analyser")
+            file_path, _ = QFileDialog.getOpenFileName(self, "Choisir un fichier à analyser",
+                                                       "",
+                                                       "Fichiers texte (*.txt)")
             if not file_path:
                 return
             in_path = Path(file_path)
@@ -418,36 +420,36 @@ class ComparePage(QWidget):
         self.chart_bar_view.setChart(bar_chart)
 
         # --- LINE CHART (QtCharts) ---
-        line_chart = QChart()
-        line_chart.setBackgroundBrush(QColor("#f8fafc"))
-        line_chart.setPlotAreaBackgroundBrush(QColor("#f1f5f9"))
-        line_chart.setPlotAreaBackgroundVisible(True)
-        line_chart.legend().setVisible(False)
-        line_chart.setAnimationOptions(QChart.SeriesAnimations)
+        # line_chart = QChart()
+        # line_chart.setBackgroundBrush(QColor("#f8fafc"))
+        # line_chart.setPlotAreaBackgroundBrush(QColor("#f1f5f9"))
+        # line_chart.setPlotAreaBackgroundVisible(True)
+        # line_chart.legend().setVisible(False)
+        # line_chart.setAnimationOptions(QChart.SeriesAnimations)
 
-        line_series = QLineSeries()
-        line_series.append(0, ratios[0])
-        line_series.append(1, ratios[1])
-        line_series.setColor(QColor("#0f172a"))
-        line_series.setPen(QPen(QColor("#0f172a"), 2.2))
-        line_chart.addSeries(line_series)
+        # line_series = QLineSeries()
+        # line_series.append(0, ratios[0])
+        # line_series.append(1, ratios[1])
+        # line_series.setColor(QColor("#0f172a"))
+        # line_series.setPen(QPen(QColor("#0f172a"), 2.2))
+        # line_chart.addSeries(line_series)
 
-        line_axis_x = QCategoryAxis()
-        line_axis_x.append("Huffman", 0)
-        line_axis_x.append("LZW", 1)
-        line_axis_x.setLabelsColor(QColor("#0f172a"))
-        line_axis_x.setGridLineVisible(False)
-        line_axis_y = QValueAxis()
-        line_axis_y.setTitleText("%")
-        line_axis_y.setTitleBrush(QColor("#0f172a"))
-        line_axis_y.setLabelsColor(QColor("#0f172a"))
-        line_axis_y.setGridLinePen(QPen(QColor("#cbd5e1"), 1, Qt.DotLine))
-        line_axis_y.setRange(0, max(ratios) * 1.3)
-        line_chart.addAxis(line_axis_x, Qt.AlignBottom)
-        line_chart.addAxis(line_axis_y, Qt.AlignLeft)
-        line_series.attachAxis(line_axis_x)
-        line_series.attachAxis(line_axis_y)
-        self.chart_line_view.setChart(line_chart)
+        # line_axis_x = QCategoryAxis()
+        # line_axis_x.append("Huffman", 0)
+        # line_axis_x.append("LZW", 1)
+        # line_axis_x.setLabelsColor(QColor("#0f172a"))
+        # line_axis_x.setGridLineVisible(False)
+        # line_axis_y = QValueAxis()
+        # line_axis_y.setTitleText("%")
+        # line_axis_y.setTitleBrush(QColor("#0f172a"))
+        # line_axis_y.setLabelsColor(QColor("#0f172a"))
+        # line_axis_y.setGridLinePen(QPen(QColor("#cbd5e1"), 1, Qt.DotLine))
+        # line_axis_y.setRange(0, max(ratios) * 1.3)
+        # line_chart.addAxis(line_axis_x, Qt.AlignBottom)
+        # line_chart.addAxis(line_axis_y, Qt.AlignLeft)
+        # line_series.attachAxis(line_axis_x)
+        # line_series.attachAxis(line_axis_y)
+        #self.chart_line_view.setChart(line_chart)
 
         # --- TIME CHART (QtCharts) ---
         time_chart = QChart()
@@ -515,9 +517,9 @@ class ComparePage(QWidget):
         self.desc_bar.setText(
             f"Comparaison des tailles: meilleure compression = {best_algo} avec {min_ratio:.1f}% de la taille originale."
         )
-        self.desc_line.setText(
-            "Le ratio (%) exprime l'efficacité de compression. Un ratio inférieur indique une réduction supérieure."
-        )
+        # self.desc_line.setText(
+        #     "Le ratio (%) exprime l'efficacité de compression. Un ratio inférieur indique une réduction supérieure."
+        # )
         self.desc_time.setText(
             f"Temps moyens d'encodage. L'algorithme le plus rapide est à {fastest} s."
         )

@@ -3,8 +3,8 @@ import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QToolButton, QFrame, QHBoxLayout, QPushButton
 )
-from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QIcon, QPixmap, QColor, QPainter, QFont
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QIcon, QColor, QPainter, QFont
 from PySide6.QtWidgets import QSizePolicy
 
 
@@ -117,7 +117,7 @@ class Sidebar(QWidget):
         self._add_section_label(nav_layout, "Algorithmes")
         self._add_nav(nav_layout, "     Huffman", "huffman", "book-open")
         self._add_nav(nav_layout, "     Lempel-Ziv", "lzw", "book-open")
-        self._add_nav(nav_layout, "     Jeu Huffman", "huffman_game", "gamepad-2")
+        # self._add_nav(nav_layout, "     Jeu Huffman", "huffman_game", "gamepad-2")
 
         nav_layout.addSpacing(16)
 
@@ -145,39 +145,59 @@ class Sidebar(QWidget):
 
         # Logo + Titre
         logo_layout = QHBoxLayout()
-        logo_layout.setSpacing(12)
+        logo_layout.setSpacing(14)
 
-        # Logo stylisé - Circle
+        # Logo stylisé - Circle avec effet
         logo = QLabel("C")
         logo.setStyleSheet("""
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #0EA5E9,
-                stop:1 #06B6D4);
+            stop:0 #0EA5E9,
+            stop:1 #06B6D4);
             color: white;
             font-size: 20px;
-            font-weight: 800;
-            border-radius: 8px;
-            padding: 4px 8px;
-            min-width: 32px;
+            font-weight: 900;
+            border-radius: 12px;
+            padding: 6px 10px;
+            min-width: 40px;
+            max-width: 40px;
             text-align: center;
+            box-shadow: 0px 8px 24px rgba(14, 165, 233, 0.4);
         """)
+        logo.setFixedSize(40, 40)
+        logo.setAlignment(Qt.AlignCenter)
         logo_layout.addWidget(logo)
 
-        # Titre
-        title = QLabel("Compressemos")
+        # Titre avec effet
+        title = QLabel("Compresse Moi")
         title.setStyleSheet("""
             color: #F8FAFC;
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         """)
-        logo_layout.addWidget(title)
+        
+        # Sous-titre accrocheur
+        tagline = QLabel("Si Tu Peux !")
+        tagline.setStyleSheet("""
+            color: #0EA5E9;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+        """)
+        
+        title_layout = QVBoxLayout()
+        title_layout.setSpacing(2)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.addWidget(title)
+        title_layout.addWidget(tagline)
+        
+        logo_layout.addLayout(title_layout)
         logo_layout.addStretch()
 
         header_layout.addLayout(logo_layout)
 
         # Sous-titre
-        subtitle = QLabel("Compression Hub")
+        subtitle = QLabel("Compression - Huffman & Lempel-Ziv-Welch")
         subtitle.setStyleSheet("""
             color: #64748B;
             font-size: 11px;
@@ -308,7 +328,7 @@ class Sidebar(QWidget):
 
     def _icon_path(self, name: str) -> str:
         return os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "assets", "icons", f"{name}.svg")
+            os.path.join(os.path.dirname(__file__), "../../../assets/icons", f"{name}.svg")
         )
 
     def _add_nav(self, layout, text, route, icon_name=None):

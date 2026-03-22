@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QMessageBox
 
 from ._auth_shared import (
     UserStore,

@@ -96,7 +96,7 @@ export default function CompressPage() {
   const ratioPercent = result ? result.ratio * 100 : 0;
 
   return (
-    <div className="relative overflow-hidden px-6 py-10 text-white">
+    <div className="relative overflow-hidden px-4 py-8 text-white sm:px-6 sm:py-10">
       <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-violet-500/20 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 top-24 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
 
@@ -109,7 +109,7 @@ export default function CompressPage() {
           <Sparkles size={14} />
           Compression intelligente
         </p>
-        <h1 className="text-4xl font-bold md:text-5xl">Compresse ton fichier en un clic</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl">Compresse ton fichier en un clic</h1>
         <p className="mt-3 max-w-3xl text-white/70">
           Importe un fichier, choisis l’algorithme adapté, puis télécharge immédiatement la version compressée.
         </p>
@@ -118,12 +118,12 @@ export default function CompressPage() {
       <motion.div
         initial={{ opacity: 0, y: 25 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-auto grid max-w-5xl gap-6 rounded-3xl border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl md:grid-cols-[1.3fr_1fr] md:p-8"
+        className="mx-auto grid max-w-5xl gap-6 rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-xl md:grid-cols-[1.3fr_1fr] sm:p-6 md:p-8"
       >
         <div>
           <motion.label
             whileHover={{ scale: 1.01 }}
-            className="group flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/30 bg-slate-950/30 px-6 py-10 text-center transition hover:border-white/60 hover:bg-white/10"
+            className="group flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/30 bg-slate-950/30 px-5 py-8 text-center transition hover:border-white/60 hover:bg-white/10 sm:min-h-56 sm:px-6 sm:py-10"
           >
             <FileUp size={42} className="mb-4 text-white/90" />
             <p className="text-lg font-medium text-white">
@@ -148,7 +148,7 @@ export default function CompressPage() {
           )}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-5">
+        <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-4 sm:p-5">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-white/60">
             Choix de l’algorithme
           </p>
@@ -221,7 +221,7 @@ export default function CompressPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleDownloadCompressed}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-black"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-black sm:w-auto"
             >
               <Download size={18} />
               Télécharger le fichier

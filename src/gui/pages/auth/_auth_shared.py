@@ -97,7 +97,7 @@ def build_brand_panel() -> QFrame:
     logo = QLabel("🧠")
     logo.setStyleSheet("font-size: 80px; color: white;")
 
-    title = QLabel("Compressemos")
+    title = QLabel("Compresse moi si tu peux !")
     title.setStyleSheet("color: white; font-size: 26px; font-weight: bold;")
 
     left_layout.addWidget(logo)

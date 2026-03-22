@@ -1,6 +1,5 @@
 import heapq
 # import tkinter as tk
-import math
 
 class Node:
     def __init__(self, char=None, freq=None):
