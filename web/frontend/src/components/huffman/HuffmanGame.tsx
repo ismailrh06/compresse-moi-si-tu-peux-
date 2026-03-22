@@ -402,8 +402,8 @@ export default function HuffmanGame() {
             key={comboAnim}
             initial={{ opacity: 0, scale: 0.4, y: 40 }}
             animate={{ opacity: 1, scale: 1.1, y: 0 }}
-            exit={{ opacity: 0, scale: 1.5, y: -60 }}
-            transition={{ duration: 0.35, exit: { duration: 0.6 } }}
+            exit={{ opacity: 0, scale: 1.5, y: -60, transition: { duration: 0.6 } }}
+            transition={{ duration: 0.35 }}
             className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
           >
             <span className="rounded-3xl border border-yellow-300/60 bg-yellow-500/20 px-10 py-5 text-4xl font-black text-yellow-200 shadow-2xl shadow-yellow-500/40 backdrop-blur-xl">
