@@ -5,6 +5,7 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get("auth_token")?.value;
   const onboarding = request.cookies.get("onboarding_done")?.value;
   const { pathname } = request.nextUrl;
+  const isOnboardingPage = pathname === "/onboarding";
 
   const isAuthPage =
     pathname.startsWith("/login") || pathname.startsWith("/signup");
@@ -15,8 +16,13 @@ export function middleware(request: NextRequest) {
   }
 
   // Connecté mais onboarding pas fait → forcer /onboarding
-  if (token && !onboarding && pathname !== "/onboarding") {
+  if (token && !onboarding && !isOnboardingPage) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
+  }
+
+  // Déjà onboardé → ne pas afficher /onboarding
+  if (token && onboarding && isOnboardingPage) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

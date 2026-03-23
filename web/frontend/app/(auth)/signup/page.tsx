@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { User, Lock, UserPlus, AlertCircle } from "lucide-react";
+import { User, Lock, UserPlus, AlertCircle, Loader2 } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api } from "@/lib/api";
 
@@ -9,6 +9,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleSignup(e: FormEvent) {
     e.preventDefault(); // IMPORTANT
@@ -20,6 +21,7 @@ export default function SignupPage() {
       return;
     }
 
+    setLoading(true);
     try {
       const response = await api.signup({
         full_name: normalizedName,
@@ -28,10 +30,12 @@ export default function SignupPage() {
 
       document.cookie = `auth_token=${encodeURIComponent(response.full_name)}; path=/;`;
       document.cookie = `full_name=${encodeURIComponent(response.full_name)}; path=/;`;
+      sessionStorage.removeItem("intro_seen");
       // onboarding doit être fait encore → redirection
       window.location.href = "/onboarding";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de créer le compte.");
+      setLoading(false);
     }
   }
 
@@ -86,12 +90,16 @@ export default function SignupPage() {
 
           <motion.button
             type="submit"
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
-            className="w-full bg-white text-black font-semibold py-3 rounded-2xl flex gap-2 justify-center"
+            disabled={loading}
+            whileTap={loading ? {} : { scale: 0.97 }}
+            whileHover={loading ? {} : { scale: 1.02 }}
+            className="w-full bg-white text-black font-semibold py-3 rounded-2xl flex gap-2 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <UserPlus size={20} />
-            S’inscrire
+            {loading ? (
+              <><Loader2 size={20} className="animate-spin" /> Inscription en cours…</>
+            ) : (
+              <><UserPlus size={20} /> S'inscrire</>
+            )}
           </motion.button>
         </form>
 

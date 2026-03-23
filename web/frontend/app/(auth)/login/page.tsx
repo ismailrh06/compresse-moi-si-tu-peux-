@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { User, Lock, LogIn, AlertCircle } from "lucide-react";
+import { User, Lock, LogIn, AlertCircle, Loader2 } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api } from "@/lib/api";
 
@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault(); // IMPORTANT
@@ -20,6 +21,7 @@ export default function LoginPage() {
       return;
     }
 
+    setLoading(true);
     try {
       const response = await api.login({
         full_name: normalizedName,
@@ -28,9 +30,12 @@ export default function LoginPage() {
 
       document.cookie = `auth_token=${encodeURIComponent(response.full_name)}; path=/;`;
       document.cookie = `full_name=${encodeURIComponent(response.full_name)}; path=/;`;
-      window.location.href = "/onboarding"; // étape obligatoire
+      document.cookie = "onboarding_done=true; path=/;";
+      sessionStorage.removeItem("intro_seen");
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de se connecter.");
+      setLoading(false);
     }
   }
 
@@ -85,12 +90,16 @@ export default function LoginPage() {
 
           <motion.button
             type="submit"
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
-            className="w-full bg-white text-black font-semibold py-3 rounded-2xl flex gap-2 justify-center"
+            disabled={loading}
+            whileTap={loading ? {} : { scale: 0.97 }}
+            whileHover={loading ? {} : { scale: 1.02 }}
+            className="w-full bg-white text-black font-semibold py-3 rounded-2xl flex gap-2 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <LogIn size={20} />
-            Se connecter
+            {loading ? (
+              <><Loader2 size={20} className="animate-spin" /> Connexion en cours…</>
+            ) : (
+              <><LogIn size={20} /> Se connecter</>
+            )}
           </motion.button>
         </form>
 
