@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { motion } from "framer-motion";
 import {
@@ -8,6 +8,7 @@ import {
   Download,
   FileUp,
   Loader2,
+  RefreshCcw,
   Trophy,
 } from "lucide-react";
 import {
@@ -22,7 +23,7 @@ import {
   Legend,
 } from "chart.js";
 
-import { api } from "@/lib/api";
+import { api, type CompareStoredFile } from "@/lib/api";
 
 ChartJS.register(
   BarElement,
@@ -84,10 +85,42 @@ function decodeBase64ToBlob(base64: string, mimeType: string) {
 }
 
 export default function ComparePage() {
+  const [sourceMode, setSourceMode] = useState<"upload" | "server">("upload");
   const [file, setFile] = useState<File | null>(null);
+  const [serverFiles, setServerFiles] = useState<CompareStoredFile[]>([]);
+  const [serverBaseDir, setServerBaseDir] = useState("");
+  const [selectedServerFile, setSelectedServerFile] = useState("");
+  const [serverFilesLoading, setServerFilesLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ComparisonResult | null>(null);
+
+  const selectedServerFileMeta = useMemo(
+    () => serverFiles.find((entry) => entry.path === selectedServerFile) ?? null,
+    [selectedServerFile, serverFiles]
+  );
+
+  async function loadServerFiles() {
+    setServerFilesLoading(true);
+    try {
+      const json = await api.getCompareFiles();
+      setServerBaseDir(json.base_dir);
+      setServerFiles(json.files);
+      if (!json.files.find((entry) => entry.path === selectedServerFile)) {
+        setSelectedServerFile(json.files[0]?.path ?? "");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de charger les fichiers du serveur.");
+    } finally {
+      setServerFilesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (sourceMode === "server" && serverFiles.length === 0 && !serverFilesLoading) {
+      void loadServerFiles();
+    }
+  }, [sourceMode]);
 
   const successfulAlgorithms = useMemo(
     () => result?.algorithms.filter((entry) => entry.compressed_size !== null) ?? [],
@@ -176,8 +209,13 @@ export default function ComparePage() {
   );
 
   async function handleCompare() {
-    if (!file) {
-      setError("Veuillez sélectionner un vrai fichier à comparer.");
+    if (sourceMode === "upload") {
+      if (!file) {
+        setError("Veuillez sélectionner un vrai fichier à comparer.");
+        return;
+      }
+    } else if (!selectedServerFile) {
+      setError("Veuillez sélectionner un fichier serveur à comparer.");
       return;
     }
 
@@ -186,7 +224,9 @@ export default function ComparePage() {
     setResult(null);
 
     try {
-      const json = (await api.compare(file)) as ComparisonResult;
+      const json = (sourceMode === "upload"
+        ? await api.compare(file as File)
+        : await api.compareStored(selectedServerFile)) as ComparisonResult;
       setResult(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur de comparaison.");
@@ -222,21 +262,86 @@ export default function ComparePage() {
         animate={{ opacity: 1, y: 0 }}
         className="mx-auto mb-8 max-w-5xl rounded-3xl border border-white/15 bg-white/10 p-5 shadow-xl backdrop-blur-xl sm:mb-10 sm:p-8"
       >
+        <div className="mb-5 inline-flex rounded-2xl border border-white/15 bg-slate-950/45 p-1 text-sm">
+          <button
+            onClick={() => {
+              setSourceMode("upload");
+              setError("");
+            }}
+            className={`rounded-xl px-4 py-2 transition ${
+              sourceMode === "upload" ? "bg-white text-black" : "text-white/70 hover:bg-white/10"
+            }`}
+          >
+            Fichier local
+          </button>
+          <button
+            onClick={() => {
+              setSourceMode("server");
+              setError("");
+              if (serverFiles.length === 0) {
+                void loadServerFiles();
+              }
+            }}
+            className={`rounded-xl px-4 py-2 transition ${
+              sourceMode === "server" ? "bg-white text-black" : "text-white/70 hover:bg-white/10"
+            }`}
+          >
+            Fichiers du serveur
+          </button>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-center">
-          <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-3xl border border-white/20 px-5 py-8 text-center transition hover:bg-white/10 sm:min-h-52 sm:px-6 sm:py-10">
-            <FileUp size={42} className="mb-4" />
-            <p className="text-lg font-medium">
-              {file ? file.name : "Importe un vrai fichier pour comparer Huffman et LZW"}
-            </p>
-            <p className="mt-2 text-sm text-white/65">
-              Texte, PDF, image ou n’importe quel fichier binaire.
-            </p>
-            <input
-              type="file"
-              className="hidden"
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
-            />
-          </label>
+          {sourceMode === "upload" ? (
+            <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-3xl border border-white/20 px-5 py-8 text-center transition hover:bg-white/10 sm:min-h-52 sm:px-6 sm:py-10">
+              <FileUp size={42} className="mb-4" />
+              <p className="text-lg font-medium">
+                {file ? file.name : "Importe un vrai fichier pour comparer Huffman et LZW"}
+              </p>
+              <p className="mt-2 text-sm text-white/65">
+                Formats pris en charge : texte(.txt) et PDF(.pdf).
+              </p>
+              <input
+                type="file"
+                className="hidden"
+                onChange={(event) => setFile(event.target.files?.[0] || null)}
+              />
+            </label>
+          ) : (
+            <div className="flex min-h-44 flex-col justify-center rounded-3xl border border-white/20 px-5 py-6 sm:min-h-52 sm:px-6 sm:py-8">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm text-white/75">Sélectionne un fichier déjà stocké côté serveur.</p>
+                <button
+                  onClick={() => void loadServerFiles()}
+                  disabled={serverFilesLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10 disabled:opacity-50"
+                >
+                  <RefreshCcw size={14} className={serverFilesLoading ? "animate-spin" : ""} />
+                  Actualiser
+                </button>
+              </div>
+
+              <select
+                value={selectedServerFile}
+                onChange={(event) => setSelectedServerFile(event.target.value)}
+                className="w-full rounded-2xl border border-white/20 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
+                disabled={serverFilesLoading || serverFiles.length === 0}
+              >
+                {serverFiles.length === 0 ? (
+                  <option value="">Aucun fichier dans data/input</option>
+                ) : (
+                  serverFiles.map((entry) => (
+                    <option key={entry.path} value={entry.path}>
+                      {entry.path}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              <p className="mt-3 text-xs text-white/55">
+                Dossier source: {serverBaseDir || "data/input"}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-4 rounded-3xl border border-white/10 bg-slate-950/50 p-5 sm:p-6">
             <div>
@@ -247,11 +352,19 @@ export default function ComparePage() {
               </p>
             </div>
 
-            {file && (
+            {sourceMode === "upload" && file && (
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
                 <p><span className="font-semibold">Nom :</span> {file.name}</p>
                 <p><span className="font-semibold">Taille :</span> {formatBytes(file.size)}</p>
                 <p><span className="font-semibold">Type :</span> {file.type || "application/octet-stream"}</p>
+              </div>
+            )}
+
+            {sourceMode === "server" && selectedServerFileMeta && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+                <p><span className="font-semibold">Nom :</span> {selectedServerFileMeta.name}</p>
+                <p><span className="font-semibold">Chemin :</span> {selectedServerFileMeta.path}</p>
+                <p><span className="font-semibold">Taille :</span> {formatBytes(selectedServerFileMeta.size)}</p>
               </div>
             )}
 
@@ -266,7 +379,7 @@ export default function ComparePage() {
                   Comparaison en cours…
                 </span>
               ) : (
-                "Comparer sur ce fichier"
+                sourceMode === "upload" ? "Comparer sur ce fichier" : "Comparer le fichier serveur"
               )}
             </button>
           </div>

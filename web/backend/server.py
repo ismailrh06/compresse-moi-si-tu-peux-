@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import math
+import mimetypes
 import os
 import sys
 from urllib.error import HTTPError, URLError
@@ -43,11 +44,14 @@ app.add_middleware(
 
 # Définition des chemins
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 LEADERBOARD_FILE = BASE_DIR / "data" / "leaderboard.json"
 USERS_FILE = BASE_DIR / "data" / "users.json"
+SERVER_COMPARE_INPUT_DIR = PROJECT_ROOT / "data" / "input" / "fichiers_optionnelles"
 LEADERBOARD_FILE.parent.mkdir(parents=True, exist_ok=True)
+SERVER_COMPARE_INPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _load_local_env(env_path: Path) -> None:
@@ -118,6 +122,10 @@ class ChatRequest(BaseModel):
 class AuthPayload(BaseModel):
     full_name: str = Field(min_length=1, max_length=80)
     password: str = Field(default="", max_length=120)
+
+
+class CompareStoredPayload(BaseModel):
+    file_path: str = Field(min_length=1, max_length=500)
 
 
 AI_ASSISTANT_PROMPT = (
@@ -257,6 +265,48 @@ def _space_saving(original_size: int, compressed_size: int) -> float:
     return (1 - (compressed_size / original_size)) if original_size else 0.0
 
 
+def _resolve_server_compare_file(file_path: str) -> Path:
+    normalized = file_path.strip().replace("\\", "/")
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Chemin de fichier invalide.")
+
+    base = SERVER_COMPARE_INPUT_DIR.resolve()
+    candidate = (base / normalized).resolve()
+
+    try:
+        candidate.relative_to(base)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Chemin de fichier non autorisé.") from exc
+
+    if not candidate.exists() or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="Fichier introuvable sur le serveur.")
+
+    return candidate
+
+
+def _list_server_compare_files() -> list[dict]:
+    files: list[dict] = []
+    base = SERVER_COMPARE_INPUT_DIR.resolve()
+
+    for path in base.rglob("*"):
+        if not path.is_file():
+            continue
+
+        relative = path.resolve().relative_to(base).as_posix()
+        stat = path.stat()
+        files.append(
+            {
+                "path": relative,
+                "name": path.name,
+                "size": stat.st_size,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            }
+        )
+
+    files.sort(key=lambda item: item["path"].lower())
+    return files
+
+
 def _serialize_compression_result(data: bytes, filename: str, algorithm_key: str) -> dict:
     algorithm = ALGORITHMS[algorithm_key]
     start = perf_counter()
@@ -279,6 +329,43 @@ def _serialize_compression_result(data: bytes, filename: str, algorithm_key: str
         "integrity_ok": restored == data,
         "compressed_base64": base64.b64encode(compressed).decode("utf-8"),
         "mime_type": "application/octet-stream",
+    }
+
+
+def _build_compare_response(data: bytes, filename: str, content_type: str) -> dict:
+    _require_non_empty_file(data)
+
+    results = []
+    for algorithm_key in ALGORITHMS:
+        try:
+            results.append(_serialize_compression_result(data, filename, algorithm_key))
+        except Exception as exc:
+            results.append(
+                {
+                    "algorithm": algorithm_key,
+                    "label": ALGORITHMS[algorithm_key]["label"],
+                    "filename": filename,
+                    "output_filename": None,
+                    "original_size": len(data),
+                    "compressed_size": None,
+                    "compression_ratio": None,
+                    "space_saving": None,
+                    "processing_ms": None,
+                    "integrity_ok": False,
+                    "compressed_base64": None,
+                    "mime_type": None,
+                    "error": str(exc),
+                }
+            )
+
+    return {
+        "filename": filename,
+        "content_type": content_type or "application/octet-stream",
+        "original_size": len(data),
+        "entropy": round(_entropy(data), 4),
+        "algorithms": results,
+        "best_algorithm": _best_algorithm(results),
+        "all_integrity_ok": all(result.get("integrity_ok") for result in results),
     }
 
 
@@ -545,42 +632,31 @@ async def api_compress(
 @app.post("/api/compare")
 async def api_compare(file: UploadFile):
     data = await file.read()
-    _require_non_empty_file(data)
-
     filename = file.filename or "fichier"
-    results = []
+    return _build_compare_response(data, filename, file.content_type or "application/octet-stream")
 
-    for algorithm_key in ALGORITHMS:
-        try:
-            results.append(_serialize_compression_result(data, filename, algorithm_key))
-        except Exception as exc:
-            results.append(
-                {
-                    "algorithm": algorithm_key,
-                    "label": ALGORITHMS[algorithm_key]["label"],
-                    "filename": filename,
-                    "output_filename": None,
-                    "original_size": len(data),
-                    "compressed_size": None,
-                    "compression_ratio": None,
-                    "space_saving": None,
-                    "processing_ms": None,
-                    "integrity_ok": False,
-                    "compressed_base64": None,
-                    "mime_type": None,
-                    "error": str(exc),
-                }
-            )
 
+@app.get("/compare/files")
+@app.get("/api/compare/files")
+async def api_compare_files():
     return {
-        "filename": filename,
-        "content_type": file.content_type or "application/octet-stream",
-        "original_size": len(data),
-        "entropy": round(_entropy(data), 4),
-        "algorithms": results,
-        "best_algorithm": _best_algorithm(results),
-        "all_integrity_ok": all(result.get("integrity_ok") for result in results),
+        "base_dir": str(SERVER_COMPARE_INPUT_DIR),
+        "files": _list_server_compare_files(),
     }
+
+
+@app.post("/compare/stored")
+@app.post("/api/compare/stored")
+async def api_compare_stored(payload: CompareStoredPayload):
+    server_file = _resolve_server_compare_file(payload.file_path)
+
+    try:
+        data = server_file.read_bytes()
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Impossible de lire le fichier serveur: {exc}") from exc
+
+    content_type = mimetypes.guess_type(server_file.name)[0] or "application/octet-stream"
+    return _build_compare_response(data, server_file.name, content_type)
 
 
 @app.post("/auth/signup")

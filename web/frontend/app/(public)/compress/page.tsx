@@ -109,7 +109,7 @@ export default function CompressPage() {
           <Sparkles size={14} />
           Compression intelligente
         </p>
-        <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl">Compresse ton fichier en un clic</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl">Compresse ton fichier</h1>
         <p className="mt-3 max-w-3xl text-white/70">
           Importe un fichier, choisis l’algorithme adapté, puis télécharge immédiatement la version compressée.
         </p>
@@ -130,7 +130,7 @@ export default function CompressPage() {
               {file ? file.name : "Clique pour importer un fichier"}
             </p>
             <p className="mt-2 text-sm text-white/65">
-              Formats pris en charge : texte, PDF, images et fichiers binaires.
+              Formats pris en charge : texte(.txt) et PDF(.pdf).
             </p>
             <input
               type="file"

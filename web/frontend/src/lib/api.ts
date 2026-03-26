@@ -43,6 +43,18 @@ export type ChatResponse = {
   reply: string;
 };
 
+export type CompareStoredFile = {
+  path: string;
+  name: string;
+  size: number;
+  modified_at: string;
+};
+
+export type CompareStoredFilesResponse = {
+  base_dir: string;
+  files: CompareStoredFile[];
+};
+
 function isLocalHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1";
 }
@@ -219,6 +231,19 @@ export const api = {
     formData.append("file", file);
 
     return postForm("compare", formData);
+  },
+
+  getCompareFiles: async () => {
+    return requestJson<CompareStoredFilesResponse>("compare/files", {
+      method: "GET",
+    });
+  },
+
+  compareStored: async (filePath: string) => {
+    return requestJson("compare/stored", {
+      method: "POST",
+      body: JSON.stringify({ file_path: filePath }),
+    });
   },
 
   getLeaderboard: async (limit = 20) => {

@@ -54,7 +54,7 @@ export default function Home() {
 
           {/* CTA BUTTON */}
           <motion.a
-            href="/onboarding"
+            href="/compress"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 200 }}
