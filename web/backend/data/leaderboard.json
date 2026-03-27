@@ -8,5 +8,75 @@
     "difficulty": "medium",
     "accuracy": 100,
     "created_at": "2026-03-25T22:38:12.776235+00:00"
+  },
+  {
+    "player_name": "ouma",
+    "score": 1050,
+    "steps": 8,
+    "errors": 0,
+    "elapsed_seconds": 20,
+    "difficulty": "easy",
+    "accuracy": 100,
+    "created_at": "2026-03-27T03:45:45.218083+00:00"
+  },
+  {
+    "player_name": "ouma",
+    "score": 1086,
+    "steps": 8,
+    "errors": 0,
+    "elapsed_seconds": 8,
+    "difficulty": "easy",
+    "accuracy": 100,
+    "created_at": "2026-03-27T03:46:05.611412+00:00"
+  },
+  {
+    "player_name": "ouma",
+    "score": 1050,
+    "steps": 8,
+    "errors": 0,
+    "elapsed_seconds": 20,
+    "difficulty": "easy",
+    "accuracy": 100,
+    "created_at": "2026-03-27T03:53:42.128243+00:00"
+  },
+  {
+    "player_name": "ouma",
+    "score": 1874,
+    "steps": 6,
+    "errors": 0,
+    "elapsed_seconds": 31,
+    "difficulty": "medium",
+    "accuracy": 100,
+    "created_at": "2026-03-27T04:00:28.367523+00:00"
+  },
+  {
+    "player_name": "ouma",
+    "score": 914,
+    "steps": 5,
+    "errors": 3,
+    "elapsed_seconds": 28,
+    "difficulty": "easy",
+    "accuracy": 63,
+    "created_at": "2026-03-27T04:04:09.650149+00:00"
+  },
+  {
+    "player_name": "ouma",
+    "score": 810,
+    "steps": 4,
+    "errors": 0,
+    "elapsed_seconds": 5,
+    "difficulty": "easy",
+    "accuracy": 100,
+    "created_at": "2026-03-27T04:09:10.585352+00:00"
+  },
+  {
+    "player_name": "ouma",
+    "score": 812,
+    "steps": 4,
+    "errors": 0,
+    "elapsed_seconds": 4,
+    "difficulty": "easy",
+    "accuracy": 100,
+    "created_at": "2026-03-27T04:11:20.385075+00:00"
   }
 ]

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Gamepad2, Joystick, Trophy, X } from "lucide-react";
+import { Gamepad2, Joystick, Trophy, UtensilsCrossed, X } from "lucide-react";
 import {
   Home,
   FileDown,
@@ -47,6 +47,11 @@ export default function Sidebar({
       label: "Jeu LZW",
       href: "/game-lzw",
       icon: Joystick,
+    },
+    {
+      label: "Monster Eater",
+      href: "/game-compression",
+      icon: UtensilsCrossed,
     },
     { label: "Classement", href: "/leaderboard", icon: Trophy },
     { label: "Info", href: "/info", icon: Info },

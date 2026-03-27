@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import StatsPanel from "./StatsPanel";
 import NodeCard from "./NodeCard";
@@ -27,6 +26,14 @@ type MergeRecord = {
   left: number;
   right: number;
   total: number;
+};
+
+type CompressionRow = {
+  symbol: string;
+  freq: number;
+  code: string;
+  length: number;
+  cost: number;
 };
 
 /* ═══════════════════════════════ CONSTANTS ══════════════════════════ */
@@ -149,6 +156,24 @@ function expectedValues(nodes: HuffmanNode[]) {
     .sort((a, b) => a - b);
 }
 
+function extractLeafCodes(root: HuffmanNode) {
+  const codes: Record<string, string> = {};
+
+  const walk = (node: HuffmanNode, path: string) => {
+    const isLeaf = !node.left && !node.right;
+    if (isLeaf) {
+      const symbol = node.symbols?.[0] ?? node.label;
+      codes[symbol] = path || "0";
+      return;
+    }
+    if (node.left) walk(node.left, `${path}0`);
+    if (node.right) walk(node.right, `${path}1`);
+  };
+
+  walk(root, "");
+  return codes;
+}
+
 function generateInitialNodes(difficulty: Difficulty): HuffmanNode[] {
   const config = DIFFICULTY_CONFIG[difficulty];
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -169,6 +194,50 @@ function generateInitialNodes(difficulty: Difficulty): HuffmanNode[] {
   );
 }
 
+function normalizeCustomText(text: string) {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function generateNodesFromText(rawText: string, maxSymbols = 10): {
+  nodes: HuffmanNode[];
+  normalized: string;
+  keptText: string;
+  droppedSymbols: number;
+  droppedChars: number;
+} | null {
+  const normalized = normalizeCustomText(rawText);
+  if (normalized.length < 2) return null;
+
+  const freq = new Map<string, number>();
+  for (const ch of normalized) {
+    freq.set(ch, (freq.get(ch) ?? 0) + 1);
+  }
+  if (freq.size < 2) return null;
+
+  const sortedEntries = [...freq.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const kept = sortedEntries.slice(0, maxSymbols);
+  const droppedSymbols = Math.max(0, sortedEntries.length - kept.length);
+  const keptSet = new Set(kept.map(([symbol]) => symbol));
+  const keptText = normalized.split("").filter((ch) => keptSet.has(ch)).join("");
+  const droppedChars = normalized.length - keptText.length;
+
+  const nodes = shuffle(
+    kept.map(([symbol, value], i) => ({
+      id: `${symbol}-${value}-${i}`,
+      label: symbol,
+      value,
+      isLeaf: true,
+      symbols: [symbol],
+    } satisfies HuffmanNode))
+  );
+
+  return { nodes, normalized, keptText, droppedSymbols, droppedChars };
+}
+
 function readCookieValue(name: string) {
   if (typeof document === "undefined") return "";
   const cookie = document.cookie.split("; ").find((r) => r.startsWith(`${name}=`));
@@ -185,10 +254,18 @@ function getStreakInfo(streak: number) {
   return { label: "", multiplier: 1, color: "", bg: "", pulse: false };
 }
 
+function getCompressionBadge(savingsPercent: number) {
+  if (savingsPercent >= 45) return { label: "🚀 Super compression", tone: "text-emerald-300" };
+  if (savingsPercent >= 25) return { label: "✨ Bonne compression", tone: "text-cyan-300" };
+  if (savingsPercent >= 10) return { label: "👍 Compression correcte", tone: "text-yellow-300" };
+  return { label: "🧪 Compression légère", tone: "text-orange-300" };
+}
+
 /* ═══════════════════════════════ COMPONENT ══════════════════════════ */
 
 export default function HuffmanGame() {
   const [nodes, setNodes] = useState<HuffmanNode[]>([]);
+  const [initialNodes, setInitialNodes] = useState<HuffmanNode[]>([]);
   const [root, setRoot] = useState<HuffmanNode | null>(null);
   const [steps, setSteps] = useState(0);
   const [errors, setErrors] = useState(0);
@@ -206,6 +283,13 @@ export default function HuffmanGame() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [comboAnim, setComboAnim] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+  const [firstNameInput, setFirstNameInput] = useState("");
+  const [textSourceLabel, setTextSourceLabel] = useState("Aléatoire");
+  const [customTextPreview, setCustomTextPreview] = useState("");
+  const [customTextForEncoding, setCustomTextForEncoding] = useState("");
+  const [customDroppedChars, setCustomDroppedChars] = useState(0);
   const mergeZoneRef = useRef<HTMLDivElement | null>(null);
   const scoreSubmittedRef = useRef(false);
 
@@ -238,8 +322,125 @@ export default function HuffmanGame() {
     [mergeQueueIds, nodes]
   );
 
+  const compressionStats = useMemo(() => {
+    if (initialNodes.length === 0) return null;
+
+    const symbolCount = initialNodes.length;
+    const totalSymbols = initialNodes.reduce((sum, n) => sum + n.value, 0);
+    const fixedBitsPerSymbol = Math.max(1, Math.ceil(Math.log2(symbolCount)));
+    const fixedTotalBits = totalSymbols * fixedBitsPerSymbol;
+    const asciiTotalBits = totalSymbols * 8;
+
+    const hasCompleteTree = Boolean(
+      root &&
+      finished &&
+      ((root.symbols?.length ?? 0) === symbolCount || root.value === totalSymbols)
+    );
+
+    if (!hasCompleteTree || !root) {
+      return {
+        symbolCount,
+        totalSymbols,
+        fixedBitsPerSymbol,
+        fixedTotalBits,
+        asciiTotalBits,
+        completed: false,
+      } as const;
+    }
+
+    const codes = extractLeafCodes(root);
+    const rows: CompressionRow[] = initialNodes
+      .map((n) => {
+        const symbol = n.symbols?.[0] ?? n.label;
+        const code = codes[symbol] ?? "";
+        const length = code.length;
+        return {
+          symbol,
+          freq: n.value,
+          code,
+          length,
+          cost: n.value * length,
+        };
+      })
+      .sort((a, b) => b.freq - a.freq || a.symbol.localeCompare(b.symbol));
+
+    const mostFrequent = rows[0] ?? null;
+    const leastFrequent = rows[rows.length - 1] ?? null;
+
+    const huffmanBits = rows.reduce((sum, row) => sum + row.cost, 0);
+    const averageBits = totalSymbols === 0 ? 0 : huffmanBits / totalSymbols;
+    const gainVsFixedBits = fixedTotalBits - huffmanBits;
+    const gainVsAsciiBits = asciiTotalBits - huffmanBits;
+    const ratioVsFixed = fixedTotalBits === 0 ? 100 : (huffmanBits / fixedTotalBits) * 100;
+    const ratioVsAscii = asciiTotalBits === 0 ? 100 : (huffmanBits / asciiTotalBits) * 100;
+    const savingsPercentVsFixed = fixedTotalBits === 0 ? 0 : (gainVsFixedBits / fixedTotalBits) * 100;
+    const savingsPercentVsAscii = asciiTotalBits === 0 ? 0 : (gainVsAsciiBits / asciiTotalBits) * 100;
+
+    return {
+      symbolCount,
+      totalSymbols,
+      fixedBitsPerSymbol,
+      fixedTotalBits,
+      asciiTotalBits,
+      huffmanBits,
+      averageBits,
+      gainVsFixedBits,
+      gainVsAsciiBits,
+      ratioVsFixed,
+      ratioVsAscii,
+      savingsPercentVsFixed,
+      savingsPercentVsAscii,
+      mostFrequent,
+      leastFrequent,
+      rows,
+      completed: true,
+    } as const;
+  }, [finished, initialNodes, root]);
+
+  const compressedCustomPreview = useMemo(() => {
+    if (!finished || !root || textSourceLabel !== "Prénom" || !customTextForEncoding) return null;
+    const codes = extractLeafCodes(root);
+    const chunks: string[] = [];
+    let totalBits = 0;
+
+    for (const ch of customTextForEncoding) {
+      const code = codes[ch];
+      if (!code) continue;
+      chunks.push(code);
+      totalBits += code.length;
+    }
+
+    if (chunks.length === 0) return null;
+
+    const bitstream = chunks.join("");
+    const groupedBits = bitstream.replace(/(.{8})/g, "$1 ").trim();
+    const shownBits = groupedBits.length > 160 ? `${groupedBits.slice(0, 160)}…` : groupedBits;
+    const estimatedBytes = Math.ceil(totalBits / 8);
+
+    return {
+      original: customTextForEncoding,
+      bitstream: shownBits,
+      totalBits,
+      estimatedBytes,
+    };
+  }, [customTextForEncoding, finished, root, textSourceLabel]);
+
   function startGame() {
-    setNodes(generateInitialNodes(difficulty));
+    const customFirstName = firstNameInput.trim();
+    const customPack = customFirstName ? generateNodesFromText(customFirstName, 10) : null;
+
+    const generated = customPack?.nodes ?? generateInitialNodes(difficulty);
+    setNodes(generated);
+    setInitialNodes(
+      generated.map((node) => ({
+        ...node,
+        symbols: [...(node.symbols ?? [node.label])],
+      }))
+    );
+    setTextSourceLabel(customPack ? "Prénom" : "Aléatoire");
+    setCustomTextPreview(customPack ? customPack.normalized.slice(0, 24) : "");
+    setCustomTextForEncoding(customPack?.keptText ?? "");
+    setCustomDroppedChars(customPack?.droppedChars ?? 0);
     setRoot(null);
     setSteps(0);
     setErrors(0);
@@ -254,7 +455,20 @@ export default function HuffmanGame() {
     setStreak(0);
     setBestStreak(0);
     setComboAnim(null);
+    setShowAdvanced(false);
+    setIsMerging(false);
     scoreSubmittedRef.current = false;
+    if (customFirstName && !customPack) {
+      setMessage("⚠️ Entre un prénom valide (au moins 2 caractères différents), sinon le jeu reste aléatoire.");
+      return;
+    }
+
+    if (customPack) {
+      const dropMsg = customPack.droppedSymbols > 0 ? ` (${customPack.droppedSymbols} symbole(s) rare(s) masqué(s) pour garder le jeu simple)` : "";
+      setMessage(`🧩 Jeu créé avec ton prénom : fusionne les 2 plus petits nœuds.${dropMsg}`);
+      return;
+    }
+
     const hints: Record<GameMode, string> = {
       classic: "Fusionne les deux nœuds les plus légers. Enchaîne pour déclencher des combos !",
       survival: `${SURVIVAL_START[difficulty]}s au compteur. Vite ! Chaque bonne fusion = +${SURVIVAL_BONUS}s.`,
@@ -335,17 +549,25 @@ export default function HuffmanGame() {
     setMergeQueueIds((current) => {
       if (current.includes(node.id)) return current.filter((id) => id !== node.id);
       if (current.length === 0) {
-        setMessage(`1er nœud : ${node.label} (${node.value}). Sélectionne le second.`);
+        setMessage(`1/2 ✅ ${node.label} (${node.value}) choisi. Sélectionne un 2e nœud.`);
         return [node.id];
       }
       if (current.length === 1) {
         const first = nodes.find((n) => n.id === current[0]);
-        setMessage(`2e nœud : ${node.label} (${node.value}). Fusion en cours…`);
-        if (first) setTimeout(() => combine(first, node), 120);
+        if (!first) {
+          setMessage("Sélection invalide. Recommence.");
+          return [node.id];
+        }
+        setIsMerging(true);
+        setMessage(`2/2 ✅ ${node.label} (${node.value}) choisi. Fusion automatique...`);
+        setTimeout(() => {
+          combine(first, node);
+          setIsMerging(false);
+        }, 280);
         return [...current, node.id];
       }
-      setMessage(`Nouvelle sélection : ${node.label} (${node.value}).`);
-      return [current[1], node.id];
+      setMessage(`Nouvelle sélection : ${node.label} (${node.value}). Choisis le 2e nœud.`);
+      return [node.id];
     });
   }
 
@@ -396,22 +618,13 @@ export default function HuffmanGame() {
     <div className="max-w-6xl mx-auto space-y-6">
 
       {/* Combo floating overlay */}
-      <AnimatePresence>
-        {comboAnim && (
-          <motion.div
-            key={comboAnim}
-            initial={{ opacity: 0, scale: 0.4, y: 40 }}
-            animate={{ opacity: 1, scale: 1.1, y: 0 }}
-            exit={{ opacity: 0, scale: 1.5, y: -60, transition: { duration: 0.6 } }}
-            transition={{ duration: 0.35 }}
-            className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
-          >
-            <span className="rounded-3xl border border-yellow-300/60 bg-yellow-500/20 px-10 py-5 text-4xl font-black text-yellow-200 shadow-2xl shadow-yellow-500/40 backdrop-blur-xl">
-              {comboAnim}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {comboAnim && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+          <span className="rounded-3xl border border-yellow-300/60 bg-yellow-500/20 px-10 py-5 text-4xl font-black text-yellow-200 shadow-2xl shadow-yellow-500/40 backdrop-blur-xl">
+            {comboAnim}
+          </span>
+        </div>
+      )}
 
       {/* HEADER */}
       <div className={`rounded-3xl border border-white/10 bg-gradient-to-r ${modeInfo.color} px-6 py-5 md:px-8 md:py-6 shadow-[0_0_45px_rgba(15,23,42,0.9)] backdrop-blur-2xl`}>
@@ -421,8 +634,7 @@ export default function HuffmanGame() {
             <h1 className="text-3xl md:text-4xl font-bold">
               Arbre de Huffman — <span className="text-emerald-300">jeu pédagogique</span>
             </h1>
-            <p className="text-sm text-white/70 max-w-xl">{modeInfo.icon} {modeInfo.desc}</p>
-            <p className="text-xs text-white/55 max-w-xl">Niveau {config.label} : {config.description}</p>
+            <p className="text-sm text-white/70 max-w-xl">{modeInfo.icon} {modeInfo.label} • Niveau {config.label}</p>
             <p className="text-xs text-emerald-200/90 mt-1">{message}</p>
           </div>
 
@@ -447,6 +659,20 @@ export default function HuffmanGame() {
             </div>
 
             <DifficultySelector difficulty={difficulty} setDifficulty={setDifficulty} disabled={started && !finished} />
+
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-3 md:min-w-[30rem]">
+              <div className="text-[11px] uppercase tracking-[0.15em] text-white/65">Option perso (prénom)</div>
+              <div className="mt-2">
+                <input
+                  value={firstNameInput}
+                  onChange={(e) => setFirstNameInput(e.target.value)}
+                  disabled={started && !finished}
+                  placeholder="Entre ton prénom"
+                  className="w-full rounded-xl border border-white/20 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-emerald-300/60 disabled:opacity-50"
+                />
+              </div>
+              <div className="mt-2 text-[11px] text-white/55">Si tu remplis ce champ, le jeu utilise les lettres de ton prénom.</div>
+            </div>
 
             <button
               onClick={startGame}
@@ -474,22 +700,16 @@ export default function HuffmanGame() {
             countdownUrgent={countdownUrgent}
             countdownDanger={countdownDanger}
           />
-          <AnimatePresence>
-            {streak >= 1 && (
-              <motion.div
-                key={streak}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-1.5 text-sm font-semibold ${streakInfo.bg} ${streakInfo.color} ${streakInfo.pulse ? "animate-pulse" : ""}`}
-              >
-                {streakInfo.label}
-                {streakInfo.multiplier > 1 && (
-                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">×{streakInfo.multiplier} sur le score</span>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {streak >= 1 && (
+            <div
+              className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-1.5 text-sm font-semibold ${streakInfo.bg} ${streakInfo.color} ${streakInfo.pulse ? "animate-pulse" : ""}`}
+            >
+              {streakInfo.label}
+              {streakInfo.multiplier > 1 && (
+                <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">×{streakInfo.multiplier} sur le score</span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -513,33 +733,48 @@ export default function HuffmanGame() {
                 {gameMode === "memory"
                   ? "🧠 Mode Mémoire : valeurs masquées par défaut. Survole ou sélectionne une carte pour la révéler."
                   : gameMode === "survival"
-                  ? `⏱️ Mode Survie : il te reste ${countdownFormatted} — chaque bonne fusion ajoute ${SURVIVAL_BONUS}s.`
-                  : "Règle : à chaque étape, fusionne les deux nœuds de poids minimal."}
+                  ? `⏱️ ${countdownFormatted} restantes — bonne fusion = +${SURVIVAL_BONUS}s.`
+                  : "Fusionne toujours les 2 plus petits nœuds."}
               </div>
 
               {/* Merge zone */}
               <div
                 ref={mergeZoneRef}
-                className="mt-4 rounded-3xl border border-dashed border-emerald-300/35 bg-gradient-to-br from-emerald-500/12 via-emerald-500/8 to-cyan-500/10 p-5 shadow-inner shadow-emerald-900/20"
+                className={`mt-4 rounded-3xl border border-dashed p-5 shadow-inner transition-all duration-300 ${
+                  mergeQueueIds.length >= 2
+                    ? "border-emerald-300/70 bg-gradient-to-br from-emerald-500/20 via-emerald-500/12 to-cyan-500/15 shadow-emerald-900/35"
+                    : mergeQueueIds.length === 1
+                    ? "border-cyan-300/55 bg-gradient-to-br from-cyan-500/15 via-slate-900/20 to-emerald-500/10"
+                    : "border-emerald-300/35 bg-gradient-to-br from-emerald-500/12 via-emerald-500/8 to-cyan-500/10 shadow-emerald-900/20"
+                } ${isMerging ? "animate-pulse" : ""}`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-base font-semibold text-emerald-200">Zone de fusion</div>
-                    <div className="mt-1 text-xs text-white/60">Dépose ici deux nœuds, ou clique sur deux cartes.</div>
+                    <div className="mt-1 text-xs text-white/60">Choisis simplement 2 cartes : la fusion se fait automatiquement.</div>
                   </div>
-                  <button
-                    onClick={() => setMergeQueueIds([])}
-                    disabled={mergeQueueIds.length === 0}
-                    className="rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs text-white/75 transition disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Vider
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setMergeQueueIds([])}
+                      disabled={mergeQueueIds.length === 0 || isMerging}
+                      className="rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs text-white/75 transition disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Vider
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
                   {[0, 1].map((slotIdx) => {
                     const qNode = mergeQueueNodes[slotIdx];
                     return (
-                      <div key={slotIdx} className="flex min-h-[132px] items-center rounded-[24px] border border-white/10 bg-slate-950/55 px-5 py-5 shadow-lg shadow-black/20">
+                      <div
+                        key={slotIdx}
+                        className={`flex min-h-[132px] items-center rounded-[24px] border px-5 py-5 shadow-lg shadow-black/20 transition-all ${
+                          qNode
+                            ? "border-emerald-300/40 bg-emerald-500/10"
+                            : "border-white/10 bg-slate-950/55"
+                        } ${isMerging && qNode ? "scale-[1.01]" : ""}`}
+                      >
                         {qNode ? (
                           <div className="w-full">
                             <div className="text-[11px] uppercase tracking-[0.2em] text-emerald-200/70">Slot {slotIdx + 1}</div>
@@ -553,6 +788,10 @@ export default function HuffmanGame() {
                     );
                   })}
                 </div>
+
+                {mergeQueueIds.length >= 2 && !isMerging && (
+                  <div className="mt-3 text-xs text-emerald-200/90">✅ Fusion validée.</div>
+                )}
               </div>
 
               {/* Cards */}
@@ -571,7 +810,7 @@ export default function HuffmanGame() {
               </div>
 
               {/* History */}
-              {history.length > 0 && (
+              {history.length > 0 && showAdvanced && (
                 <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-4">
                   <div className="mb-3 text-sm font-semibold">Historique des fusions</div>
                   <div className="flex flex-wrap gap-2 text-xs text-white/70">
@@ -597,35 +836,186 @@ export default function HuffmanGame() {
           </div>
           <HuffmanTree root={root} />
         </div>
+
+        {started && compressionStats && (
+          <div className="rounded-3xl border border-emerald-400/30 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.2),transparent_58%),_rgba(2,6,23,0.96)] p-6 md:p-7 shadow-xl shadow-black/60">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-semibold text-emerald-200">Pourquoi Huffman rend le message plus léger</h2>
+              <span className="text-xs text-white/60">
+                {compressionStats.completed
+                  ? "Les symboles fréquents ont des codes plus courts."
+                  : "Termine l’arbre pour voir le gain de compression."}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.15em] text-slate-400">Source</div>
+                <div className="mt-1 text-lg font-semibold text-white">{textSourceLabel}</div>
+                <div className="text-xs text-white/55">{customTextPreview ? `“${customTextPreview}”` : "Symboles générés"}</div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.15em] text-slate-400">Sans arbre</div>
+                <div className="mt-1 text-lg font-semibold text-cyan-300">{compressionStats.fixedTotalBits} bits</div>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-300/30 bg-emerald-500/10 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.15em] text-emerald-200/80">Avec ton arbre</div>
+                <div className="mt-1 text-lg font-semibold text-emerald-300">
+                  {compressionStats.completed ? `${compressionStats.huffmanBits} bits` : "—"}
+                </div>
+                <div className="text-xs text-emerald-100/80">
+                  {compressionStats.completed
+                    ? `${compressionStats.averageBits.toFixed(2)} bits/symbole`
+                    : "En attente de l’arbre final"}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-300/30 bg-emerald-500/10 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.15em] text-emerald-200/80">Gain</div>
+                <div className="mt-1 text-lg font-semibold text-emerald-300">
+                  {compressionStats.completed ? `${Math.max(0, compressionStats.savingsPercentVsFixed).toFixed(1)}%` : "—"}
+                </div>
+                <div className="text-xs text-emerald-100/80">
+                  {compressionStats.completed ? "bits en moins" : "visible à la fin"}
+                </div>
+              </div>
+            </div>
+
+            {compressionStats.completed ? (
+              <>
+                {compressedCustomPreview && (
+                  <div className="mt-4 rounded-2xl border border-emerald-300/35 bg-emerald-500/10 px-4 py-4">
+                    <div className="text-sm font-semibold text-emerald-200">Ton prénom après compression</div>
+                    <div className="mt-2 text-xs text-white/75">
+                      <span className="text-white/55">Texte :</span> <span className="font-semibold">{compressedCustomPreview.original}</span>
+                    </div>
+                    <div className="mt-2 text-xs text-white/75">
+                      <span className="text-white/55">Résultat binaire :</span>
+                    </div>
+                    <div className="mt-1 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 font-mono text-xs text-emerald-200 break-all">
+                      {compressedCustomPreview.bitstream}
+                    </div>
+                    <div className="mt-2 text-xs text-emerald-100/85">
+                      Taille compressée : {compressedCustomPreview.totalBits} bits (~{compressedCustomPreview.estimatedBytes} octets)
+                      {customDroppedChars > 0 ? ` • ${customDroppedChars} caractère(s) ignoré(s) pour rester sur les symboles du jeu.` : ""}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/65 px-4 py-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-xs text-white/70">Lecture rapide (avant vs après)</div>
+                    <span className={`rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-semibold ${getCompressionBadge(Math.max(0, compressionStats.savingsPercentVsFixed)).tone}`}>
+                      {getCompressionBadge(Math.max(0, compressionStats.savingsPercentVsFixed)).label}
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full w-full bg-cyan-400/65" />
+                  </div>
+                  <div className="mt-2 h-3 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-400/85"
+                      style={{ width: `${Math.max(4, Math.min(100, compressionStats.ratioVsFixed))}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 text-xs text-white/75">Ligne 1 = sans arbre (100%) • Ligne 2 = avec arbre ({compressionStats.ratioVsFixed.toFixed(1)}%)</div>
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    onClick={() => setShowAdvanced((v) => !v)}
+                    className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 transition hover:border-white/40"
+                  >
+                    {showAdvanced ? "Masquer les détails" : "Voir les détails"}
+                  </button>
+                </div>
+
+                {showAdvanced && (
+                  <>
+                    {compressionStats.mostFrequent && compressionStats.leastFrequent && (
+                      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="rounded-2xl border border-emerald-300/30 bg-emerald-500/10 px-4 py-3">
+                          <div className="text-[11px] uppercase tracking-[0.15em] text-emerald-200/80">Symbole fréquent = code court</div>
+                          <div className="mt-1 text-sm text-white/85">
+                            <span className="font-semibold text-emerald-200">{compressionStats.mostFrequent.symbol}</span> ({compressionStats.mostFrequent.freq} fois) →
+                            <span className="font-mono text-emerald-300"> {compressionStats.mostFrequent.code}</span>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                          <div className="text-[11px] uppercase tracking-[0.15em] text-slate-300/80">Symbole rare = code plus long</div>
+                          <div className="mt-1 text-sm text-white/80">
+                            <span className="font-semibold text-slate-100">{compressionStats.leastFrequent.symbol}</span> ({compressionStats.leastFrequent.freq} fois) →
+                            <span className="font-mono text-cyan-300"> {compressionStats.leastFrequent.code}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-4">
+                      <div className="mb-3 text-sm font-semibold text-white">Table des codes</div>
+                      <div className="overflow-auto">
+                        <table className="min-w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-white/10 text-slate-300/80">
+                              <th className="px-2 py-2 font-medium">Symbole</th>
+                              <th className="px-2 py-2 font-medium">Fréquence</th>
+                              <th className="px-2 py-2 font-medium">Code</th>
+                              <th className="px-2 py-2 font-medium">Taille</th>
+                              <th className="px-2 py-2 font-medium">Bits</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {compressionStats.rows.map((row) => (
+                              <tr key={row.symbol} className="border-b border-white/5 text-slate-100/90">
+                                <td className="px-2 py-2 font-semibold">{row.symbol}</td>
+                                <td className="px-2 py-2">{row.freq}</td>
+                                <td className="px-2 py-2 font-mono text-emerald-300">{row.code}</td>
+                                <td className="px-2 py-2">{row.length}</td>
+                                <td className="px-2 py-2">{row.cost}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="mt-4 rounded-2xl border border-dashed border-emerald-300/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100/90">
+                  Résumé : l’arbre rend les symboles fréquents moins coûteux, donc le message final prend moins de place.
+                </div>
+              </>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-white/20 bg-white/5 px-4 py-3 text-sm text-white/70">
+                Pour l’instant tu construis l’arbre. Quand il est fini, on te montre clairement combien de place tu gagnes grâce à Huffman.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Completion banner */}
       {finished && !gameOver && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-600/30 via-emerald-500/25 to-emerald-400/30 px-5 py-4 shadow-lg shadow-emerald-500/40"
-        >
+        <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-600/30 via-emerald-500/25 to-emerald-400/30 px-5 py-4 shadow-lg shadow-emerald-500/40">
           <div className="text-base font-semibold">
             🎉 Bravo ! Arbre terminé — <span className="text-emerald-300">score final {score}</span>
             {bestStreak >= 3 && <span className="ml-3 text-sm text-yellow-300">• Meilleure série : {bestStreak} 🔥</span>}
           </div>
           {leaderboardMessage && <div className="mt-2 text-xs text-emerald-50/90">{leaderboardMessage}</div>}
-        </motion.div>
+        </div>
       )}
 
       {/* Game over banner (survival) */}
       {finished && gameOver && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-rose-500/40 bg-gradient-to-r from-rose-600/30 via-rose-500/25 to-orange-400/30 px-5 py-4 shadow-lg shadow-rose-500/40"
-        >
+        <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-r from-rose-600/30 via-rose-500/25 to-orange-400/30 px-5 py-4 shadow-lg shadow-rose-500/40">
           <div className="text-base font-semibold">
             ⏰ Temps écoulé ! Tu avais réalisé <span className="text-orange-300">{steps} fusions</span> sur {config.nodeCount - 1} nécessaires.
           </div>
           <div className="mt-1 text-sm text-white/70">Réessaie — chaque bonne fusion = +{SURVIVAL_BONUS}s !</div>
-        </motion.div>
+        </div>
       )}
     </div>
   );

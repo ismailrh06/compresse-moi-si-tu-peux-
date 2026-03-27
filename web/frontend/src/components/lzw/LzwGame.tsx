@@ -381,7 +381,7 @@ export default function LzwGame() {
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-white/60">LZW Lab</p>
             <h1 className="mt-1 text-3xl font-bold md:text-4xl">
-              Jeu LZW — <span className="text-cyan-300">vulgarisation interactive</span>
+              Dictionnaire LZW — <span className="text-cyan-300">jeu pédagogique</span>
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-white/70">
               {info.icon} {info.desc}

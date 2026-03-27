@@ -81,11 +81,11 @@ backend-prod:
 
 frontend:
 	@echo "✨ Lancement du frontend Next.js..."
-	cd $(FRONTEND_DIR) && (test -d node_modules || pnpm install) && pnpm dev --webpack
+	cd $(FRONTEND_DIR) && ((test -d node_modules && test -e node_modules/react && test -e node_modules/react-dom && test -e node_modules/typescript) || pnpm install) && pnpm dev --webpack
 
 frontend-network:
 	@echo "✨ Lancement du frontend Next.js (LAN accessible)..."
-	cd $(FRONTEND_DIR) && (test -d node_modules || pnpm install) && pnpm dev --webpack --hostname 0.0.0.0
+	cd $(FRONTEND_DIR) && ((test -d node_modules && test -e node_modules/react && test -e node_modules/react-dom && test -e node_modules/typescript) || pnpm install) && pnpm dev --webpack --hostname 0.0.0.0
 
 # -------------------------------------------
 #               RUN TARGETS
