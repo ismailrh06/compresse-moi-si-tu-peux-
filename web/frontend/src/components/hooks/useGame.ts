@@ -245,6 +245,7 @@ export function useGame(assistMode: boolean) {
       return;
     }
     const def = COMMAND_DEFS.find((d) => d.id === id)!;
+    let commandSucceeded = false;
 
     switch (id) {
       case "compress":
@@ -252,6 +253,12 @@ export function useGame(assistMode: boolean) {
         return;
 
       case "chain": {
+        const canChain = ALL_ITEM_TYPES.some((type) => byType[type] >= minGroup);
+        if (!canChain) {
+          setMessage("❌ CHAIN : aucun type avec assez d'objets.");
+          break;
+        }
+        commandSucceeded = true;
         setItems((prev) => {
           let next = [...prev];
           let totalPacks = 0;
@@ -266,10 +273,6 @@ export function useGame(assistMode: boolean) {
               parts.push(`${type}×${count}`);
               next = next.filter((it) => it.type !== type);
             }
-          }
-          if (totalPacks === 0) {
-            setMessage("❌ CHAIN : aucun type avec assez d'objets.");
-            return prev;
           }
           const newCombo = comboRef.current + 1;
           comboRef.current = newCombo;
@@ -293,8 +296,12 @@ export function useGame(assistMode: boolean) {
       }
 
       case "devour": {
+        if (compressedStock === 0) {
+          setMessage("❌ DEVOUR : stock vide !");
+          break;
+        }
+        commandSucceeded = true;
         setCompressedStock((stock) => {
-          if (stock === 0) { setMessage("❌ DEVOUR : stock vide !"); return stock; }
           const bonus = Math.round(stock * 22 * 3);
           setScore((s) => s + bonus);
           setMonsterSize((m) => Math.min(4, m + stock * 0.4));
@@ -314,9 +321,13 @@ export function useGame(assistMode: boolean) {
 
       case "blast": {
         const t = target ?? selectedType;
+        if (byType[t] === 0) {
+          setMessage(`❌ BLAST : aucun ${t}.`);
+          break;
+        }
+        commandSucceeded = true;
         setItems((prev) => {
           const count = prev.filter((it) => it.type === t).length;
-          if (count === 0) { setMessage(`❌ BLAST : aucun ${t}.`); return prev; }
           const logMsg = `💣 BLAST ${t} ×${count} éliminés`;
           setMessage(logMsg);
           addLog(logMsg);
@@ -328,6 +339,7 @@ export function useGame(assistMode: boolean) {
       }
 
       case "wait": {
+        commandSucceeded = true;
         pauseRef.current = 3;
         setPauseTicks(3);
         setFrustration((f) => Math.max(0, f - 20));
@@ -338,7 +350,7 @@ export function useGame(assistMode: boolean) {
       }
     }
 
-    if (def.cooldownTicks > 0) {
+    if (commandSucceeded && def.cooldownTicks > 0) {
       setCooldowns((prev) => ({ ...prev, [id]: def.cooldownTicks }));
     }
   }

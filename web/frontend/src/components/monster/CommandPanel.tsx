@@ -39,13 +39,13 @@ export default function CommandPanel({
               onClick={() => !isDisabled && onExecute(def.id)}
               disabled={isDisabled}
               className={[
-                "relative flex items-center gap-3 px-4 py-2 rounded-lg border text-left",
-                "transition-all duration-150 text-sm font-mono",
+                "relative flex items-center gap-3 rounded-xl border px-4 py-2.5 text-left",
+                "text-sm font-mono transition-all duration-150",
                 isActive
-                  ? "border-yellow-400 bg-yellow-400/20 scale-[1.02]"
+                  ? "scale-[1.02] border-yellow-300/80 bg-yellow-400/20 shadow-md shadow-yellow-500/20"
                   : isReady && !disabled
-                  ? "border-cyan-500/70 bg-cyan-950/60 hover:bg-cyan-900/60 hover:border-cyan-400 cursor-pointer"
-                  : "border-gray-700/50 bg-gray-900/50 opacity-50 cursor-not-allowed",
+                  ? "cursor-pointer border-cyan-400/50 bg-gradient-to-r from-cyan-900/70 to-indigo-900/50 hover:border-cyan-300 hover:shadow-md hover:shadow-cyan-500/20"
+                  : "cursor-not-allowed border-white/10 bg-black/30 opacity-55",
               ].join(" ")}
             >
               {/* Cooldown progress bar */}
@@ -68,11 +68,7 @@ export default function CommandPanel({
                   >
                     [{def.key}]
                   </span>
-                  <span
-                    className={`font-bold ${
-                      isActive ? "text-yellow-200" : isReady ? "text-white" : "text-gray-500"
-                    }`}
-                  >
+                  <span className={`font-bold ${isActive ? "text-yellow-200" : isReady ? "text-white" : "text-gray-500"}`}>
                     {def.name}
                   </span>
                   {def.id === "compress" && (
@@ -108,12 +104,12 @@ export default function CommandPanel({
       )}
 
       {/* Command log */}
-      <div className="border border-gray-700/50 rounded-lg bg-black/40 overflow-hidden">
-        <div className="px-3 py-1 border-b border-gray-700/50 flex items-center gap-2">
-          <span className="text-gray-500 text-xs font-mono">▸ LOG</span>
-          <span className="text-gray-600 text-xs">({commandLog.length})</span>
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-black/35">
+        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-1.5">
+          <span className="text-xs font-mono text-gray-400">▸ LOG</span>
+          <span className="text-xs text-gray-500">({commandLog.length})</span>
         </div>
-        <div className="p-2 flex flex-col gap-0.5 min-h-[80px] max-h-[120px] overflow-y-auto">
+        <div className="flex min-h-[80px] max-h-[120px] flex-col gap-0.5 overflow-y-auto p-2">
           {commandLog.length === 0 ? (
             <p className="text-gray-600 text-xs font-mono italic px-1">En attente de commandes...</p>
           ) : (

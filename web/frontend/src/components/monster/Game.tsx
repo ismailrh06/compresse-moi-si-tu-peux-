@@ -20,6 +20,13 @@ export default function Game() {
   const mood = frenzyActive ? "🤩" : game.frustration > 75 ? "😡" : game.frustration > 45 ? "😤" : "😋";
   const visibleTypes = (assistMode ? EASY_ITEM_TYPES : ALL_ITEM_TYPES) as unknown as ItemType[];
 
+  // Keep selected type visible when switching assist mode
+  useEffect(() => {
+    if (!visibleTypes.includes(game.selectedType)) {
+      game.setSelectedType(visibleTypes[0]);
+    }
+  }, [game.selectedType, game.setSelectedType, visibleTypes]);
+
   // Contextual hint for the player
   const hint = (() => {
     if (game.phase !== "running") return null;
@@ -77,7 +84,8 @@ export default function Game() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Header */}
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-fuchsia-500/20 via-orange-500/10 to-emerald-500/20 p-5 shadow-xl backdrop-blur-2xl">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-fuchsia-500/20 via-orange-500/10 to-emerald-500/20 p-5 shadow-xl backdrop-blur-2xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.12),transparent_45%),radial-gradient(circle_at_80%_60%,rgba(34,211,238,0.12),transparent_40%)]" />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🐲</span>
@@ -107,9 +115,10 @@ export default function Game() {
 
       {/* RUNNING / LOST layout */}
       {game.phase !== "idle" && (
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px_0.7fr]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px_0.7fr]">
         {/* Left: game field */}
-        <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+        <div className="relative space-y-4 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(56,189,248,0.12),transparent_40%),radial-gradient(circle_at_85%_90%,rgba(244,114,182,0.12),transparent_42%)]" />
           <div className="flex items-center justify-between">
             <p className="text-xs uppercase tracking-widest text-white/40 font-mono">📦 piles d&apos;objets</p>
             <p className="text-xs text-white/40 font-mono">{game.message}</p>
@@ -186,7 +195,7 @@ export default function Game() {
         </div>
 
         {/* Centre: command panel */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-cyan-500/10 to-indigo-500/5 p-5 shadow-2xl backdrop-blur-xl lg:sticky lg:top-6 lg:self-start">
           <div className="mb-3 space-y-0.5">
             <p className="text-xs font-mono uppercase tracking-widest text-cyan-400">⌘ tes commandes</p>
             <p className="text-xs text-white/40">Clique ou utilise les raccourcis clavier</p>
@@ -203,7 +212,7 @@ export default function Game() {
         </div>
 
         {/* Right: monster panel */}
-        <div className="relative space-y-4 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+        <div className="relative space-y-4 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-emerald-500/10 to-white/5 p-5 shadow-2xl backdrop-blur-xl">
           <p className="text-xs uppercase tracking-widest text-white/40 font-mono">🐲 ton monstre</p>
           <MonsterView size={game.monsterSize} frenzy={frenzyActive} mood={mood} />
 

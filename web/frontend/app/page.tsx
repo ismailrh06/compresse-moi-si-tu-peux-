@@ -36,7 +36,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl"
           >
-            Compressez. Analysez.  
+            Compresser. Analysez.  
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-blue-300">
               Visualisez.
             </span>
